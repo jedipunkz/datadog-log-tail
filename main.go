@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"datadog-log-tail/cmd"
+	"github.com/jedipunkz/datadog-log-tail/cmd"
 )
 
 func main() {

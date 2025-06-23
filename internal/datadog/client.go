@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"datadog-log-tail/internal/config"
+	"github.com/jedipunkz/datadog-log-tail/internal/config"
 )
 
 // Client represents a Datadog API client

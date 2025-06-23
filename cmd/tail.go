@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"datadog-log-tail/internal/config"
-	"datadog-log-tail/internal/datadog"
+	"github.com/jedipunkz/datadog-log-tail/internal/config"
+	"github.com/jedipunkz/datadog-log-tail/internal/datadog"
 
 	"github.com/spf13/cobra"
 )

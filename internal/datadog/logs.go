@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"datadog-log-tail/internal/output"
-	"datadog-log-tail/pkg/utils"
+	"github.com/jedipunkz/datadog-log-tail/internal/output"
+	"github.com/jedipunkz/datadog-log-tail/pkg/utils"
 )
 
 // LogEntry represents a Datadog v2 log entry
