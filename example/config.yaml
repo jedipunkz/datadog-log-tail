@@ -1,0 +1,25 @@
+# Datadog Logs Tail (dlt) 設定ファイルサンプル
+# このファイルを ~/.dlt/config.yaml にコピーして使用してください
+
+# ログフィルタリング設定（オプション）
+# タグによるフィルタリング（カンマ区切り）
+tags: "service:web,env:dev"
+
+# ログレベルフィルタリング（オプション）
+# 有効な値: debug, info, warn, error
+log_level: "info"
+
+# 出力形式設定（オプション）
+# 有効な値: text, json
+# デフォルト: text
+output_format: "text"
+
+# 接続設定（オプション）
+# 接続タイムアウト（秒）
+# デフォルト: 30
+timeout: 30
+
+# リトライ設定（オプション）
+# リトライ回数
+# デフォルト: 3
+retry_count: 3 
