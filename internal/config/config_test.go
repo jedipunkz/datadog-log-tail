@@ -103,13 +103,13 @@ func TestConfig_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear environment variables
-			os.Unsetenv("DD_API_KEY")
-			os.Unsetenv("DD_APP_KEY")
-			os.Unsetenv("DD_SITE")
+			_ = os.Unsetenv("DD_API_KEY")
+			_ = os.Unsetenv("DD_APP_KEY")
+			_ = os.Unsetenv("DD_SITE")
 
 			// Set test environment variables
 			for key, value := range tt.envVars {
-				os.Setenv(key, value)
+				_ = os.Setenv(key, value)
 			}
 
 			err := tt.config.Validate()
@@ -138,9 +138,9 @@ func TestConfig_Validate(t *testing.T) {
 	}
 
 	// Clean up
-	os.Unsetenv("DD_API_KEY")
-	os.Unsetenv("DD_APP_KEY")
-	os.Unsetenv("DD_SITE")
+	_ = os.Unsetenv("DD_API_KEY")
+	_ = os.Unsetenv("DD_APP_KEY")
+	_ = os.Unsetenv("DD_SITE")
 }
 
 func TestConfig_Getters(t *testing.T) {

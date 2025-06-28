@@ -6,24 +6,6 @@ import (
 	"github.com/jedipunkz/datadog-log-tail/internal/config"
 )
 
-// Mock LogEntry for testing
-type mockLogEntry struct {
-	id         string
-	timestamp  int64
-	message    string
-	service    string
-	status     string
-	tags       []string
-	attributes map[string]interface{}
-}
-
-func (m *mockLogEntry) GetID() string                         { return m.id }
-func (m *mockLogEntry) GetTimestamp() int64                   { return m.timestamp }
-func (m *mockLogEntry) GetMessage() string                    { return m.message }
-func (m *mockLogEntry) GetService() string                    { return m.service }
-func (m *mockLogEntry) GetStatus() string                     { return m.status }
-func (m *mockLogEntry) GetTags() []string                     { return m.tags }
-func (m *mockLogEntry) GetAttributes() map[string]interface{} { return m.attributes }
 
 func TestLogEntry_Interface(t *testing.T) {
 	log := &LogEntry{

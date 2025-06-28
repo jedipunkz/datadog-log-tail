@@ -87,10 +87,12 @@ func TestCalculateBackoff_Consistency(t *testing.T) {
 		results[i] = CalculateBackoff(retryCount)
 	}
 
-	// All results should be within the expected range
+	// All results should be within the expected range (±10% jitter)
 	expectedBase := math.Pow(2, float64(retryCount))
-	minExpected := time.Duration(expectedBase*0.9) * time.Second
-	maxExpected := time.Duration(expectedBase*1.1) * time.Second
+	minExpectedFloat := expectedBase - expectedBase*0.1
+	maxExpectedFloat := expectedBase + expectedBase*0.1
+	minExpected := time.Duration(minExpectedFloat * float64(time.Second))
+	maxExpected := time.Duration(maxExpectedFloat * float64(time.Second))
 
 	for i, result := range results {
 		if result < minExpected || result > maxExpected {
