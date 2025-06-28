@@ -10,7 +10,6 @@ A Go command-line tool for tailing Datadog Logs in real-time
 - Log level filtering
 - Multiple output formats (JSON, plain text)
 - Interactive TUI (Terminal User Interface) mode
-- Error handling and retry functionality
 
 ## Installation
 
@@ -160,27 +159,6 @@ TUI mode features:
   }
 }
 ```
-
-## Error Handling
-
-### Authentication Errors
-
-```bash
-Error: API key not set (DD_API_KEY)
-Error: Application key not set (DD_APP_KEY)
-```
-
-### Network Errors
-
-- Connection timeout
-- DNS resolution error
-- HTTP status error
-
-### API Errors
-
-- Rate limiting
-- Query syntax error
-- Server error
 
 ## License
 
