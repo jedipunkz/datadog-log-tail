@@ -178,6 +178,11 @@ func (c *Client) TailLogs() error {
 	}
 }
 
+// FetchLogsV2 fetches logs from Datadog Logs API v2 (public method for TUI)
+func (c *Client) FetchLogsV2(ctx context.Context, from, to time.Time) ([]LogEntry, time.Time, error) {
+	return c.fetchLogsV2(ctx, from, to)
+}
+
 // fetchLogsV2 fetches logs from Datadog Logs API v2
 func (c *Client) fetchLogsV2(ctx context.Context, from, to time.Time) ([]LogEntry, time.Time, error) {
 	endpoint := "/api/v2/logs/events/search"
@@ -365,7 +370,7 @@ func (c *Client) tryAlternativeRequest(ctx context.Context, from, to time.Time) 
 // GetLogs fetches logs for TUI mode with custom config
 func (c *Client) GetLogs(cfg *config.Config) ([]map[string]interface{}, error) {
 	ctx := context.Background()
-	from := time.Now().Add(-30 * time.Second)
+	from := time.Now().Add(-10 * time.Second)  // Reduced from 30s to 10s for better real-time
 	to := time.Now()
 
 	// Temporarily update client config

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -23,6 +24,9 @@ type TUI struct {
 	cancel      context.CancelFunc
 	filterMutex sync.RWMutex
 	currentTags string
+	// State tracking for log tailing
+	lastTimestamp time.Time
+	lastTimestampMutex sync.RWMutex
 }
 
 func New(cfg *config.Config) (*TUI, error) {
@@ -100,7 +104,7 @@ func (t *TUI) setupUI() {
 
 func (t *TUI) startLogTailing() {
 	go func() {
-		ticker := time.NewTicker(2 * time.Second)
+		ticker := time.NewTicker(3 * time.Second)  // Use same interval as non-TUI mode
 		defer ticker.Stop()
 
 		for {
@@ -112,17 +116,49 @@ func (t *TUI) startLogTailing() {
 				currentTags := t.currentTags
 				t.filterMutex.RUnlock()
 
-				// Update config with current filter
-				tempConfig := *t.config
-				tempConfig.Tags = currentTags
+				// Update config with current filter if needed
+				if currentTags != t.config.GetTags() {
+					t.config.Tags = currentTags
+				}
 
-				// Get logs from Datadog
-				logs, err := t.client.GetLogs(&tempConfig)
+				// Use the same logic as TailLogs but adapted for TUI
+				t.lastTimestampMutex.RLock()
+				from := t.lastTimestamp
+				t.lastTimestampMutex.RUnlock()
+
+				if from.IsZero() {
+					from = time.Now().Add(-1 * time.Minute) // Start with 1 minute window
+				} else {
+					// Add 1 nanosecond to avoid duplicate logs
+					from = from.Add(1 * time.Nanosecond)
+				}
+				to := time.Now()
+
+				logs, latest, err := t.fetchLogsForTUI(from, to)
 				if err != nil {
 					t.app.QueueUpdateDraw(func() {
 						fmt.Fprintf(t.logView, "[red]Error fetching logs: %v[white]\n", err)
 					})
 					continue
+				}
+
+				// Update lastTimestamp to avoid duplicate logs
+				if !latest.IsZero() {
+					t.lastTimestampMutex.Lock()
+					if t.lastTimestamp.IsZero() || latest.After(t.lastTimestamp) {
+						t.lastTimestamp = latest
+					}
+					t.lastTimestampMutex.Unlock()
+				} else if len(logs) == 0 {
+					// If no logs returned, advance time slightly to avoid infinite loop
+					t.lastTimestampMutex.Lock()
+					if t.lastTimestamp.IsZero() {
+						t.lastTimestamp = time.Now().Add(-30 * time.Second)
+					} else {
+						// Move forward by a small amount when no new logs
+						t.lastTimestamp = time.Now().Add(-10 * time.Second)
+					}
+					t.lastTimestampMutex.Unlock()
 				}
 
 				// Display logs
@@ -132,6 +168,33 @@ func (t *TUI) startLogTailing() {
 	}()
 }
 
+func (t *TUI) fetchLogsForTUI(from, to time.Time) ([]map[string]interface{}, time.Time, error) {
+	ctx := context.Background()
+	
+	// Use the same fetchLogsV2 method as the main TailLogs
+	logs, latest, err := t.client.FetchLogsV2(ctx, from, to)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+
+	// Convert LogEntry to map for TUI display
+	var result []map[string]interface{}
+	for _, log := range logs {
+		logMap := map[string]interface{}{
+			"id":         log.GetID(),
+			"timestamp":  time.Unix(log.GetTimestamp(), 0).Format("15:04:05"),
+			"message":    log.GetMessage(),
+			"service":    log.GetService(),
+			"level":      log.GetStatus(),
+			"tags":       log.GetTags(),
+			"attributes": log.GetAttributes(),
+		}
+		result = append(result, logMap)
+	}
+	
+	return result, latest, nil
+}
+
 func (t *TUI) displayLogs(logs []map[string]interface{}) {
 	if len(logs) == 0 {
 		return
@@ -139,29 +202,31 @@ func (t *TUI) displayLogs(logs []map[string]interface{}) {
 
 	t.app.QueueUpdateDraw(func() {
 		for _, log := range logs {
-			timestamp := ""
-			if ts, ok := log["timestamp"]; ok {
-				timestamp = fmt.Sprintf("[blue]%v[white] ", ts)
+			// Convert log to JSON format
+			jsonBytes, err := json.MarshalIndent(log, "", "  ")
+			if err != nil {
+				fmt.Fprintf(t.logView, "[red]Error formatting log as JSON: %v[white]\n", err)
+				continue
 			}
-
-			level := ""
-			if lvl, ok := log["level"]; ok {
-				color := getLogLevelColor(fmt.Sprintf("%v", lvl))
-				level = fmt.Sprintf("[%s]%v[white] ", color, lvl)
-			}
-
-			service := ""
-			if svc, ok := log["service"]; ok {
-				service = fmt.Sprintf("[yellow]%v[white] ", svc)
-			}
-
-			message := ""
-			if msg, ok := log["message"]; ok {
-				message = fmt.Sprintf("%v", msg)
-			}
-
-			logLine := fmt.Sprintf("%s%s%s%s\n", timestamp, level, service, message)
-			fmt.Fprint(t.logView, logLine)
+			
+			// Add color highlighting to the JSON
+			jsonStr := string(jsonBytes)
+			
+			// Color the JSON output for better readability
+			jsonStr = strings.ReplaceAll(jsonStr, `"timestamp":`, `[cyan]"timestamp":[white]`)
+			jsonStr = strings.ReplaceAll(jsonStr, `"level":`, `[green]"level":[white]`)
+			jsonStr = strings.ReplaceAll(jsonStr, `"service":`, `[yellow]"service":[white]`)
+			jsonStr = strings.ReplaceAll(jsonStr, `"message":`, `[white]"message":[white]`)
+			jsonStr = strings.ReplaceAll(jsonStr, `"tags":`, `[lightgreen]"tags":[white]`)
+			jsonStr = strings.ReplaceAll(jsonStr, `"attributes":`, `[lightblue]"attributes":[white]`)
+			jsonStr = strings.ReplaceAll(jsonStr, `"id":`, `[magenta]"id":[white]`)
+			
+			// Print the colored JSON
+			fmt.Fprint(t.logView, jsonStr)
+			fmt.Fprint(t.logView, "\n")
+			
+			// Add separator line for readability
+			fmt.Fprint(t.logView, "[darkgray]"+strings.Repeat("─", 80)+"[white]\n")
 		}
 		
 		// Auto-scroll to bottom
