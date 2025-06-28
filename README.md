@@ -9,6 +9,7 @@ A Go command-line tool for tailing Datadog Logs in real-time
 - Log filtering by tags
 - Log level filtering
 - Multiple output formats (JSON, plain text)
+- Interactive TUI (Terminal User Interface) mode
 - Error handling and retry functionality
 
 ## Installation
@@ -26,15 +27,6 @@ make install
 ### Build from Source
 
 ```bash
-# Install dependencies
-make deps
-
-# Build for development
-make build-dev
-
-# Build for release (optimized)
-make build-release
-
 # Build for specific platform
 make build-linux    # Linux
 make build-darwin   # macOS
@@ -89,6 +81,9 @@ dlt --tags "service:api" --level error
 
 # Specify output format
 dlt --format json
+
+# Enable TUI mode
+dlt --tui
 ```
 
 ### Flags
@@ -98,6 +93,7 @@ dlt --format json
 | `--tags` | Tag filter (comma-separated) | - |
 | `--level` | Log level (debug, info, warn, error) | - |
 | `--format` | Output format (json, text) | text |
+| `--tui` | Enable TUI mode for interactive log viewing | false |
 | `--timeout` | Connection timeout (seconds) | 30 |
 | `--retry` | Retry count | 3 |
 | `--config` | Configuration file path | ~/.dlt/config.yaml |
@@ -116,7 +112,28 @@ dlt --timeout 60 --retry 5
 
 # Use custom configuration file
 dlt --config /path/to/config.yaml
+
+# Start TUI mode with filters
+dlt --tui --tags "service:web" --level error
 ```
+
+## TUI Mode
+
+TUI (Terminal User Interface) mode provides an interactive interface for viewing logs with enhanced navigation and filtering capabilities.
+
+```bash
+# Enable TUI mode
+dlt --tui
+
+# TUI mode with filters
+dlt --tui --tags "service:web" --level error
+```
+
+TUI mode features:
+- Interactive log viewing with scrolling
+- Real-time log updates
+- Enhanced visual formatting
+- Keyboard navigation
 
 ## Output Formats
 
@@ -165,101 +182,6 @@ Error: Application key not set (DD_APP_KEY)
 - Query syntax error
 - Server error
 
-## Development
-
-### Project Structure
-
-```
-.
-├── main.go                 # Entry point
-├── Makefile               # Build automation
-├── cmd/
-│   └── tail.go            # Main command
-├── internal/
-│   ├── config/
-│   │   └── config.go      # Configuration management
-│   ├── datadog/
-│   │   ├── client.go      # Datadog API client
-│   │   └── logs.go        # Log retrieval logic
-│   └── output/
-│       └── formatter.go   # Output formatter
-├── pkg/
-│   └── utils/
-│       └── retry.go       # Retry utility
-└── go.mod
-```
-
-### Makefile Commands
-
-The project includes a comprehensive Makefile for common development tasks:
-
-```bash
-# Build targets
-make build              # Build the application (default)
-make build-dev          # Build for development (with debug info)
-make build-release      # Build for release (optimized)
-make build-linux        # Build for Linux
-make build-darwin       # Build for macOS
-make build-windows      # Build for Windows
-make build-all          # Build for all platforms
-
-# Installation
-make install            # Install to /usr/local/bin
-make uninstall          # Uninstall from /usr/local/bin
-
-# Testing
-make test               # Run all tests
-make test-coverage      # Run tests with coverage report
-
-# Code quality
-make fmt                # Format code
-make lint               # Run linter (requires golangci-lint)
-make deps               # Download and tidy dependencies
-
-# Utilities
-make clean              # Clean build artifacts
-make run                # Build and run the application
-make help               # Show all available commands
-```
-
-### Testing
-
-```bash
-# Run all tests
-make test
-
-# Run tests with coverage
-make test-coverage
-
-# Test specific packages
-go test ./internal/config
-go test ./internal/datadog
-```
-
-### Build
-
-```bash
-# Development build
-make build-dev
-
-# Release build
-make build-release
-
-# Cross-platform builds
-make build-all
-```
-
-### Code Quality
-
-```bash
-# Format code
-make fmt
-
-# Run linter (install golangci-lint first)
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-make lint
-```
-
 ## License
 
 MIT License
@@ -270,4 +192,4 @@ MIT License
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Create a Pull Request 
+5. Create a Pull Request
