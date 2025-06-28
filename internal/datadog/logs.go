@@ -213,7 +213,7 @@ func (c *Client) fetchLogsV2(ctx context.Context, from, to time.Time) ([]LogEntr
 	if err != nil {
 		return nil, time.Time{}, fmt.Errorf("failed to execute HTTP request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
@@ -274,98 +274,6 @@ func (c *Client) fetchLogsV2(ctx context.Context, from, to time.Time) ([]LogEntr
 	return logs, latest, nil
 }
 
-// tryAlternativeRequest tries alternative request structures
-func (c *Client) tryAlternativeRequest(ctx context.Context, from, to time.Time) ([]LogEntry, time.Time, error) {
-	fmt.Fprintf(os.Stderr, "Trying alternative request structure...\n")
-
-	// Try with query inside filter
-	query := c.buildQueryV2()
-	body := map[string]interface{}{
-		"filter": map[string]interface{}{
-			"from":  from.UTC().Format(time.RFC3339),
-			"to":    to.UTC().Format(time.RFC3339),
-			"query": query,
-		},
-		"page": map[string]interface{}{
-			"limit": 100,
-		},
-		"sort": "timestamp",
-	}
-	jsonBody, _ := json.Marshal(body)
-
-	fmt.Fprintf(os.Stderr, "Alternative request body: %s\n", string(jsonBody))
-
-	req, err := c.createRequest(ctx, "POST", "/api/v2/logs/events/search")
-	if err != nil {
-		return nil, time.Time{}, err
-	}
-	req.Body = io.NopCloser(bytes.NewReader(jsonBody))
-	req.ContentLength = int64(len(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, time.Time{}, fmt.Errorf("failed to execute alternative HTTP request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, time.Time{}, fmt.Errorf("Alternative request also failed: %s - %s", resp.Status, string(body))
-	}
-
-	var v2resp v2LogsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&v2resp); err != nil {
-		return nil, time.Time{}, fmt.Errorf("failed to parse alternative response: %w", err)
-	}
-
-	var logs []LogEntry
-	var latest time.Time
-	for _, d := range v2resp.Data {
-		ts, _ := time.Parse(time.RFC3339Nano, d.Attrs.Timestamp)
-
-		message := d.Attrs.Message
-		if message == "" {
-			message = d.Attrs.Content
-		}
-		if message == "" {
-			message = d.Attrs.Text
-		}
-		if message == "" {
-			message = d.Attrs.Log
-		}
-		if message == "" {
-			message = "No message content"
-		}
-
-		service := d.Attrs.Service
-		if service == "" {
-			service = d.Attrs.Host
-		}
-
-		status := d.Attrs.Status
-		if status == "" {
-			status = d.Attrs.LogLevel
-		}
-
-		log := LogEntry{
-			ID:         d.ID,
-			Timestamp:  ts.Unix(),
-			Message:    message,
-			Service:    service,
-			Status:     status,
-			Tags:       d.Attrs.Tags,
-			Attributes: d.Attrs.Attributes,
-		}
-		logs = append(logs, log)
-		if ts.After(latest) {
-			latest = ts
-		}
-	}
-
-	fmt.Fprintf(os.Stderr, "Alternative request succeeded!\n")
-	return logs, latest, nil
-}
 
 // GetLogs fetches logs for TUI mode with custom config
 func (c *Client) GetLogs(cfg *config.Config) ([]map[string]interface{}, error) {

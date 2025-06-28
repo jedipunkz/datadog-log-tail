@@ -95,7 +95,7 @@ func TestClient_doRequest_Success(t *testing.T) {
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"data": []}`))
+		_, _ = w.Write([]byte(`{"data": []}`))
 	}))
 	defer server.Close()
 
@@ -120,7 +120,7 @@ func TestClient_doRequest_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("doRequest() error = %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("StatusCode = %v, want %v", resp.StatusCode, http.StatusOK)
@@ -131,7 +131,7 @@ func TestClient_doRequest_Error(t *testing.T) {
 	// Create test server that returns error
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"errors":["Forbidden"]}`))
+		_, _ = w.Write([]byte(`{"errors":["Forbidden"]}`))
 	}))
 	defer server.Close()
 

@@ -137,7 +137,7 @@ func (t *TUI) startLogTailing() {
 				logs, latest, err := t.fetchLogsForTUI(from, to)
 				if err != nil {
 					t.app.QueueUpdateDraw(func() {
-						fmt.Fprintf(t.logView, "[red]Error fetching logs: %v[white]\n", err)
+						_, _ = fmt.Fprintf(t.logView, "[red]Error fetching logs: %v[white]\n", err)
 					})
 					continue
 				}
@@ -205,7 +205,7 @@ func (t *TUI) displayLogs(logs []map[string]interface{}) {
 			// Convert log to JSON format
 			jsonBytes, err := json.MarshalIndent(log, "", "  ")
 			if err != nil {
-				fmt.Fprintf(t.logView, "[red]Error formatting log as JSON: %v[white]\n", err)
+				_, _ = fmt.Fprintf(t.logView, "[red]Error formatting log as JSON: %v[white]\n", err)
 				continue
 			}
 			
@@ -222,11 +222,11 @@ func (t *TUI) displayLogs(logs []map[string]interface{}) {
 			jsonStr = strings.ReplaceAll(jsonStr, `"id":`, `[magenta]"id":[white]`)
 			
 			// Print the colored JSON
-			fmt.Fprint(t.logView, jsonStr)
-			fmt.Fprint(t.logView, "\n")
+			_, _ = fmt.Fprint(t.logView, jsonStr)
+			_, _ = fmt.Fprint(t.logView, "\n")
 			
 			// Add separator line for readability
-			fmt.Fprint(t.logView, "[darkgray]"+strings.Repeat("─", 80)+"[white]\n")
+			_, _ = fmt.Fprint(t.logView, "[darkgray]"+strings.Repeat("─", 80)+"[white]\n")
 		}
 		
 		// Auto-scroll to bottom
@@ -234,20 +234,6 @@ func (t *TUI) displayLogs(logs []map[string]interface{}) {
 	})
 }
 
-func getLogLevelColor(level string) string {
-	switch strings.ToLower(level) {
-	case "error":
-		return "red"
-	case "warn", "warning":
-		return "orange"
-	case "info":
-		return "green"
-	case "debug":
-		return "gray"
-	default:
-		return "white"
-	}
-}
 
 func (t *TUI) Run() error {
 	t.setupUI()
