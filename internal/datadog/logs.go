@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -87,8 +89,9 @@ func (c *Client) TailLogs() error {
 	var lastTimestamp time.Time
 	retryCount := 0
 	maxRetries := c.config.GetRetryCount()
-	baseInterval := 10 * time.Second // Changed to 10 seconds to avoid rate limiting
+	baseInterval := 5 * time.Second // Base interval reduced for better real-time performance
 	currentInterval := baseInterval
+	maxInterval := 30 * time.Second // Maximum interval to prevent too long waits
 
 	for {
 		if retryCount >= maxRetries {
@@ -97,17 +100,27 @@ func (c *Client) TailLogs() error {
 
 		from := lastTimestamp
 		if from.IsZero() {
-			from = time.Now().Add(-5 * time.Minute)
+			from = time.Now().Add(-1 * time.Minute) // Start with 1 minute window
+		} else {
+			// Add 1 nanosecond to avoid duplicate logs
+			from = lastTimestamp.Add(1 * time.Nanosecond)
 		}
 		to := time.Now()
 
 		logs, latest, err := c.fetchLogsV2(ctx, from, to)
 		if err != nil {
-			// Special handling for 429 errors
+			// Special handling for 429 errors with exponential backoff and jitter
 			if strings.Contains(err.Error(), "429") {
-				fmt.Fprintf(os.Stderr, "Rate limit reached. Waiting 10 seconds...\n")
-				time.Sleep(10 * time.Second)
-				currentInterval = 10 * time.Second // Temporarily extend interval
+				backoffTime := time.Duration(math.Min(float64(30*time.Second), float64(currentInterval)*2))
+				jitter := time.Duration(rand.Intn(int(backoffTime / 4)))
+				waitTime := backoffTime + jitter
+
+				fmt.Fprintf(os.Stderr, "Rate limit reached. Waiting %v...\n", waitTime)
+				time.Sleep(waitTime)
+				currentInterval = waitTime
+				if currentInterval > maxInterval {
+					currentInterval = maxInterval
+				}
 				continue
 			}
 
@@ -119,9 +132,23 @@ func (c *Client) TailLogs() error {
 			continue
 		}
 
-		// Reset retry counter and restore base interval on success
+		// Reset retry counter on success
 		retryCount = 0
-		currentInterval = baseInterval
+
+		// Adjust interval based on log activity
+		if len(logs) > 0 {
+			// Logs found: reduce interval for better real-time performance
+			currentInterval = time.Duration(float64(currentInterval) * 0.8)
+			if currentInterval < baseInterval {
+				currentInterval = baseInterval
+			}
+		} else {
+			// No logs: increase interval to reduce API calls
+			currentInterval = time.Duration(float64(currentInterval) * 1.2)
+			if currentInterval > maxInterval {
+				currentInterval = maxInterval
+			}
+		}
 
 		for _, log := range logs {
 			formatted, err := formatter.Format(log)
@@ -137,12 +164,13 @@ func (c *Client) TailLogs() error {
 			if lastTimestamp.IsZero() || latest.After(lastTimestamp) {
 				lastTimestamp = latest
 			}
-		} else {
+		} else if len(logs) == 0 {
 			// If no logs returned, advance time slightly to avoid infinite loop
 			if lastTimestamp.IsZero() {
-				lastTimestamp = time.Now().Add(-1 * time.Minute)
-			} else {
 				lastTimestamp = time.Now().Add(-30 * time.Second)
+			} else {
+				// Move forward by a small amount when no new logs
+				lastTimestamp = time.Now().Add(-10 * time.Second)
 			}
 		}
 		time.Sleep(currentInterval)
