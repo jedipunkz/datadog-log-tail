@@ -8,25 +8,31 @@ import (
 
 // CalculateBackoff calculates exponential backoff wait time
 func CalculateBackoff(retryCount int) time.Duration {
+	// Special case for retry count 0: return exactly 1 second
+	if retryCount == 0 {
+		return 1 * time.Second
+	}
+
 	// Exponential backoff: 2^retryCount seconds (max 30 seconds)
 	backoffSeconds := math.Pow(2, float64(retryCount))
 	if backoffSeconds > 30 {
 		backoffSeconds = 30
 	}
 
-	// Appropriate jitter (±20% randomness)
-	jitter := backoffSeconds * 0.2 * (rand.Float64() - 0.5) // -10% to +10%
-	backoffSeconds = backoffSeconds + jitter
+	// Apply jitter (±10% randomness)
+	jitterRange := backoffSeconds * 0.1
+	jitter := (rand.Float64() * 2 - 1) * jitterRange // -10% to +10%
+	result := backoffSeconds + jitter
 
-	// Minimum 1 second, maximum 30 seconds
-	if backoffSeconds < 1 {
-		backoffSeconds = 1
+	// Ensure minimum 1 second, maximum 30 seconds
+	if result < 1 {
+		result = 1
 	}
-	if backoffSeconds > 30 {
-		backoffSeconds = 30
+	if result > 30 {
+		result = 30
 	}
 
-	return time.Duration(backoffSeconds) * time.Second
+	return time.Duration(result * float64(time.Second))
 }
 
 // ShouldRetry determines whether to retry based on the error
