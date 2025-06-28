@@ -6,6 +6,7 @@ import (
 
 	"github.com/jedipunkz/datadog-log-tail/internal/config"
 	"github.com/jedipunkz/datadog-log-tail/internal/datadog"
+	"github.com/jedipunkz/datadog-log-tail/internal/tui"
 
 	"github.com/spf13/cobra"
 )
@@ -17,6 +18,7 @@ var (
 	format  string
 	timeout int
 	retry   int
+	tuiMode bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -49,6 +51,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&format, "format", "text", "Output format (json, text)")
 	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 30, "Connection timeout (seconds)")
 	rootCmd.PersistentFlags().IntVar(&retry, "retry", 3, "Retry count")
+	rootCmd.PersistentFlags().BoolVar(&tuiMode, "tui", false, "Enable TUI mode for interactive log viewing")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -96,6 +99,20 @@ func runTail(cmd *cobra.Command, args []string) error {
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	// Check if TUI mode is enabled
+	if tuiMode {
+		// Create and run TUI
+		tuiApp, err := tui.New(cfg)
+		if err != nil {
+			return fmt.Errorf("failed to create TUI: %w", err)
+		}
+		
+		if err := tuiApp.Run(); err != nil {
+			return fmt.Errorf("TUI error: %w", err)
+		}
+		return nil
 	}
 
 	// Create Datadog client

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jedipunkz/datadog-log-tail/internal/config"
 	"github.com/jedipunkz/datadog-log-tail/internal/output"
 	"github.com/jedipunkz/datadog-log-tail/pkg/utils"
 )
@@ -359,6 +360,52 @@ func (c *Client) tryAlternativeRequest(ctx context.Context, from, to time.Time) 
 
 	fmt.Fprintf(os.Stderr, "Alternative request succeeded!\n")
 	return logs, latest, nil
+}
+
+// GetLogs fetches logs for TUI mode with custom config
+func (c *Client) GetLogs(cfg *config.Config) ([]map[string]interface{}, error) {
+	ctx := context.Background()
+	from := time.Now().Add(-30 * time.Second)
+	to := time.Now()
+
+	// Temporarily update client config
+	originalTags := c.config.GetTags()
+	originalLevel := c.config.GetLogLevel()
+	
+	// Apply temporary config
+	if cfg.GetTags() != "" {
+		c.config.Tags = cfg.GetTags()
+	}
+	if cfg.GetLogLevel() != "" {
+		c.config.LogLevel = cfg.GetLogLevel()
+	}
+
+	logs, _, err := c.fetchLogsV2(ctx, from, to)
+	
+	// Restore original config
+	c.config.Tags = originalTags
+	c.config.LogLevel = originalLevel
+	
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert LogEntry to map for TUI
+	var result []map[string]interface{}
+	for _, log := range logs {
+		logMap := map[string]interface{}{
+			"id":         log.ID,
+			"timestamp":  time.Unix(log.Timestamp, 0).Format("15:04:05"),
+			"message":    log.Message,
+			"service":    log.Service,
+			"level":      log.Status,
+			"tags":       log.Tags,
+			"attributes": log.Attributes,
+		}
+		result = append(result, logMap)
+	}
+	
+	return result, nil
 }
 
 // buildQueryV2 builds Datadog v2 query
