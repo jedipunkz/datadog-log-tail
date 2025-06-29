@@ -319,6 +319,7 @@ func (c *Client) GetLogs(cfg *config.Config) ([]map[string]interface{}, error) {
 	}
 	if cfg.GetLogLevel() != "" {
 		c.config.LogLevel = cfg.GetLogLevel()
+		c.config.LogLevels = cfg.GetLogLevels()
 	}
 
 	logs, _, err := c.fetchLogsV2(ctx, from, to)
@@ -361,8 +362,24 @@ func (c *Client) buildQueryV2() string {
 			}
 		}
 	}
-	if c.config.GetLogLevel() != "" {
+	
+	// Handle multiple log levels
+	levels := c.config.GetLogLevels()
+	if len(levels) > 0 {
+		if len(levels) == 1 {
+			conditions = append(conditions, fmt.Sprintf("status:%s", levels[0]))
+		} else {
+			// Multiple levels: (status:error OR status:warn OR status:info)
+			var levelConditions []string
+			for _, level := range levels {
+				levelConditions = append(levelConditions, fmt.Sprintf("status:%s", level))
+			}
+			conditions = append(conditions, fmt.Sprintf("(%s)", strings.Join(levelConditions, " OR ")))
+		}
+	} else if c.config.GetLogLevel() != "" {
+		// Fallback for backward compatibility
 		conditions = append(conditions, fmt.Sprintf("status:%s", c.config.GetLogLevel()))
 	}
+	
 	return strings.Join(conditions, " ")
 }
