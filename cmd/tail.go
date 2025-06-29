@@ -108,7 +108,7 @@ func runTail(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create TUI: %w", err)
 		}
-		
+
 		if err := tuiApp.Run(); err != nil {
 			return fmt.Errorf("TUI error: %w", err)
 		}

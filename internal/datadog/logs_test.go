@@ -6,7 +6,6 @@ import (
 	"github.com/jedipunkz/datadog-log-tail/internal/config"
 )
 
-
 func TestLogEntry_Interface(t *testing.T) {
 	log := &LogEntry{
 		ID:         "test-id",
@@ -283,4 +282,3 @@ func TestV2LogAttributes_StatusExtraction(t *testing.T) {
 		})
 	}
 }
-

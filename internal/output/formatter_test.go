@@ -137,7 +137,7 @@ func TestJSONFormatter_Format(t *testing.T) {
 			if len(result) == 0 {
 				t.Error("JSON result should not be empty")
 			}
-			
+
 			// Basic structure check - should be a JSON object
 			if !strings.HasPrefix(result, "{") || !strings.HasSuffix(result, "}") {
 				t.Errorf("JSON result should be a valid JSON object, got: %s", result)
@@ -283,7 +283,7 @@ func TestTextFormatter_TimestampFormat(t *testing.T) {
 	if !strings.Contains(result, "2022-01-") {
 		t.Errorf("TextFormatter.Format() should contain a 2022 date, got: %s", result)
 	}
-	
+
 	// Check for timestamp bracket pattern
 	if !strings.Contains(result, "[2022-") {
 		t.Errorf("TextFormatter.Format() should contain timestamp in brackets, got: %s", result)

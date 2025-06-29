@@ -25,7 +25,7 @@ type TUI struct {
 	filterMutex sync.RWMutex
 	currentTags string
 	// State tracking for log tailing
-	lastTimestamp time.Time
+	lastTimestamp      time.Time
 	lastTimestampMutex sync.RWMutex
 }
 
@@ -66,7 +66,7 @@ func (t *TUI) setupUI() {
 		t.filterMutex.Lock()
 		t.currentTags = text
 		t.filterMutex.Unlock()
-		
+
 		// Clear existing logs when filter changes
 		t.logView.Clear()
 		t.logView.SetText("Filter updated. New logs will appear here...\n")
@@ -104,7 +104,7 @@ func (t *TUI) setupUI() {
 
 func (t *TUI) startLogTailing() {
 	go func() {
-		ticker := time.NewTicker(3 * time.Second)  // Use same interval as non-TUI mode
+		ticker := time.NewTicker(3 * time.Second) // Use same interval as non-TUI mode
 		defer ticker.Stop()
 
 		for {
@@ -170,7 +170,7 @@ func (t *TUI) startLogTailing() {
 
 func (t *TUI) fetchLogsForTUI(from, to time.Time) ([]map[string]interface{}, time.Time, error) {
 	ctx := context.Background()
-	
+
 	// Use the same fetchLogsV2 method as the main TailLogs
 	logs, latest, err := t.client.FetchLogsV2(ctx, from, to)
 	if err != nil {
@@ -191,7 +191,7 @@ func (t *TUI) fetchLogsForTUI(from, to time.Time) ([]map[string]interface{}, tim
 		}
 		result = append(result, logMap)
 	}
-	
+
 	return result, latest, nil
 }
 
@@ -208,10 +208,10 @@ func (t *TUI) displayLogs(logs []map[string]interface{}) {
 				_, _ = fmt.Fprintf(t.logView, "[red]Error formatting log as JSON: %v[white]\n", err)
 				continue
 			}
-			
+
 			// Add color highlighting to the JSON
 			jsonStr := string(jsonBytes)
-			
+
 			// Color the JSON output for better readability
 			jsonStr = strings.ReplaceAll(jsonStr, `"timestamp":`, `[cyan]"timestamp":[white]`)
 			jsonStr = strings.ReplaceAll(jsonStr, `"level":`, `[green]"level":[white]`)
@@ -220,20 +220,19 @@ func (t *TUI) displayLogs(logs []map[string]interface{}) {
 			jsonStr = strings.ReplaceAll(jsonStr, `"tags":`, `[lightgreen]"tags":[white]`)
 			jsonStr = strings.ReplaceAll(jsonStr, `"attributes":`, `[lightblue]"attributes":[white]`)
 			jsonStr = strings.ReplaceAll(jsonStr, `"id":`, `[magenta]"id":[white]`)
-			
+
 			// Print the colored JSON
 			_, _ = fmt.Fprint(t.logView, jsonStr)
 			_, _ = fmt.Fprint(t.logView, "\n")
-			
+
 			// Add separator line for readability
 			_, _ = fmt.Fprint(t.logView, "[darkgray]"+strings.Repeat("─", 80)+"[white]\n")
 		}
-		
+
 		// Auto-scroll to bottom
 		t.logView.ScrollToEnd()
 	})
 }
-
 
 func (t *TUI) Run() error {
 	t.setupUI()

@@ -8,10 +8,10 @@ import (
 
 func TestConfig_Validate(t *testing.T) {
 	tests := []struct {
-		name       string
-		config     *Config
-		envVars    map[string]string
-		wantErr    bool
+		name          string
+		config        *Config
+		envVars       map[string]string
+		wantErr       bool
 		errorContains string
 	}{
 		{
@@ -36,7 +36,7 @@ func TestConfig_Validate(t *testing.T) {
 			envVars: map[string]string{
 				"DD_APP_KEY": "test-app-key",
 			},
-			wantErr:    true,
+			wantErr:       true,
 			errorContains: "API key not set",
 		},
 		{
@@ -47,7 +47,7 @@ func TestConfig_Validate(t *testing.T) {
 			envVars: map[string]string{
 				"DD_API_KEY": "test-api-key",
 			},
-			wantErr:    true,
+			wantErr:       true,
 			errorContains: "application key not set",
 		},
 		{
@@ -59,7 +59,7 @@ func TestConfig_Validate(t *testing.T) {
 				"DD_API_KEY": "test-api-key",
 				"DD_APP_KEY": "test-app-key",
 			},
-			wantErr:    true,
+			wantErr:       true,
 			errorContains: "invalid output format",
 		},
 		{
@@ -72,7 +72,7 @@ func TestConfig_Validate(t *testing.T) {
 				"DD_API_KEY": "test-api-key",
 				"DD_APP_KEY": "test-app-key",
 			},
-			wantErr:    true,
+			wantErr:       true,
 			errorContains: "invalid log level",
 		},
 		{

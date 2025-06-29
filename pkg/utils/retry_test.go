@@ -9,17 +9,17 @@ import (
 
 func TestCalculateBackoff(t *testing.T) {
 	tests := []struct {
-		name         string
-		retryCount   int
-		minExpected  time.Duration
-		maxExpected  time.Duration
-		exactCheck   bool
-		exactValue   time.Duration
+		name        string
+		retryCount  int
+		minExpected time.Duration
+		maxExpected time.Duration
+		exactCheck  bool
+		exactValue  time.Duration
 	}{
 		{
 			name:        "First retry",
 			retryCount:  1,
-			minExpected: 900 * time.Millisecond, // 2^1 - 10% jitter = 1.8s
+			minExpected: 900 * time.Millisecond,  // 2^1 - 10% jitter = 1.8s
 			maxExpected: 2200 * time.Millisecond, // 2^1 + 10% jitter = 2.2s
 		},
 		{
@@ -60,7 +60,7 @@ func TestCalculateBackoff(t *testing.T) {
 			}
 
 			if result < tt.minExpected || result > tt.maxExpected {
-				t.Errorf("CalculateBackoff(%d) = %v, want between %v and %v", 
+				t.Errorf("CalculateBackoff(%d) = %v, want between %v and %v",
 					tt.retryCount, result, tt.minExpected, tt.maxExpected)
 			}
 
@@ -96,7 +96,7 @@ func TestCalculateBackoff_Consistency(t *testing.T) {
 
 	for i, result := range results {
 		if result < minExpected || result > maxExpected {
-			t.Errorf("CalculateBackoff(%d) call %d = %v, want between %v and %v", 
+			t.Errorf("CalculateBackoff(%d) call %d = %v, want between %v and %v",
 				retryCount, i, result, minExpected, maxExpected)
 		}
 	}
