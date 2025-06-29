@@ -11,14 +11,15 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	APIKey       string `mapstructure:"api_key"`
-	AppKey       string `mapstructure:"app_key"`
-	Site         string `mapstructure:"site"`
-	Tags         string `mapstructure:"tags"`
-	LogLevel     string `mapstructure:"log_level"`
-	OutputFormat string `mapstructure:"output_format"`
-	Timeout      int    `mapstructure:"timeout"`
-	RetryCount   int    `mapstructure:"retry_count"`
+	APIKey       string   `mapstructure:"api_key"`
+	AppKey       string   `mapstructure:"app_key"`
+	Site         string   `mapstructure:"site"`
+	Tags         string   `mapstructure:"tags"`
+	LogLevel     string   `mapstructure:"log_level"`
+	LogLevels    []string `mapstructure:"log_levels"`
+	OutputFormat string   `mapstructure:"output_format"`
+	Timeout      int      `mapstructure:"timeout"`
+	RetryCount   int      `mapstructure:"retry_count"`
 }
 
 // Load loads configuration from file and environment variables
@@ -89,16 +90,27 @@ func (c *Config) Validate() error {
 	}
 
 	if c.LogLevel != "" {
+		// Parse comma-separated log levels
+		levels := strings.Split(c.LogLevel, ",")
+		c.LogLevels = make([]string, 0, len(levels))
 		validLevels := []string{"debug", "info", "warn", "error"}
-		isValid := false
-		for _, level := range validLevels {
-			if c.LogLevel == level {
-				isValid = true
-				break
+		
+		for _, level := range levels {
+			level = strings.TrimSpace(level)
+			if level == "" {
+				continue
 			}
-		}
-		if !isValid {
-			return fmt.Errorf("invalid log level: %s (must be one of debug, info, warn, error)", c.LogLevel)
+			isValid := false
+			for _, validLevel := range validLevels {
+				if level == validLevel {
+					isValid = true
+					break
+				}
+			}
+			if !isValid {
+				return fmt.Errorf("invalid log level: %s (must be one of debug, info, warn, error)", level)
+			}
+			c.LogLevels = append(c.LogLevels, level)
 		}
 	}
 
@@ -128,6 +140,11 @@ func (c *Config) GetTags() string {
 // GetLogLevel returns the log level filter
 func (c *Config) GetLogLevel() string {
 	return c.LogLevel
+}
+
+// GetLogLevels returns the parsed log levels as a slice
+func (c *Config) GetLogLevels() []string {
+	return c.LogLevels
 }
 
 // GetOutputFormat returns the output format

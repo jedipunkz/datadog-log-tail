@@ -32,7 +32,8 @@ Authentication is configured via environment variables, and log filtering is ava
 Examples:
   dlt                                    # Basic usage
   dlt --tags "service:web,env:prod"     # Filter by tags
-  dlt --level error --format json       # Filter by log level and output format`,
+  dlt --level error --format json       # Filter by log level and output format
+  dlt --level error,warn --tags "env:prod" # Filter by multiple log levels and tags`,
 	RunE: runTail,
 }
 
@@ -47,7 +48,7 @@ func init() {
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Configuration file (default: ~/.dlt/config.yaml)")
 	rootCmd.PersistentFlags().StringVar(&tags, "tags", "", "Tag filter (comma-separated)")
-	rootCmd.PersistentFlags().StringVar(&level, "level", "", "Log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().StringVar(&level, "level", "", "Log level (debug, info, warn, error) - supports comma-separated values")
 	rootCmd.PersistentFlags().StringVar(&format, "format", "text", "Output format (json, text)")
 	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 30, "Connection timeout (seconds)")
 	rootCmd.PersistentFlags().IntVar(&retry, "retry", 3, "Retry count")
