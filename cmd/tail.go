@@ -49,7 +49,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Configuration file (default: ~/.dlt/config.yaml)")
 	rootCmd.PersistentFlags().StringVar(&tags, "tags", "", "Tag filter (comma-separated)")
 	rootCmd.PersistentFlags().StringVar(&level, "level", "", "Log level (debug, info, warn, error) - supports comma-separated values")
-	rootCmd.PersistentFlags().StringVar(&format, "format", "text", "Output format (json, text)")
+	rootCmd.PersistentFlags().StringVar(&format, "format", "", "Output format (json, text)")
 	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 30, "Connection timeout (seconds)")
 	rootCmd.PersistentFlags().IntVar(&retry, "retry", 3, "Retry count")
 	rootCmd.PersistentFlags().BoolVar(&tuiMode, "tui", false, "Enable TUI mode for interactive log viewing")
@@ -89,6 +89,9 @@ func runTail(cmd *cobra.Command, args []string) error {
 	}
 	if format != "" {
 		cfg.OutputFormat = format
+	} else if cfg.OutputFormat == "" {
+		// Set default if not specified in config file or flag
+		cfg.OutputFormat = "text"
 	}
 	if timeout > 0 {
 		cfg.Timeout = timeout
