@@ -21,7 +21,7 @@ func CalculateBackoff(retryCount int) time.Duration {
 
 	// Apply jitter (±10% randomness)
 	jitterRange := backoffSeconds * 0.1
-	jitter := (rand.Float64() * 2 - 1) * jitterRange // -10% to +10%
+	jitter := (rand.Float64()*2 - 1) * jitterRange // -10% to +10%
 	result := backoffSeconds + jitter
 
 	// Ensure minimum 1 second, maximum 30 seconds
