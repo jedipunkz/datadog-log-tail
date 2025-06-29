@@ -184,7 +184,9 @@ func (c *Client) TailLogs() error {
 			}
 			// Flush output immediately for real-time display
 			fmt.Println(formatted)
-			os.Stdout.Sync() // Force flush for immediate output
+			if err := os.Stdout.Sync(); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to sync stdout: %v\n", err)
+			}
 		}
 
 		// Update lastTimestamp to avoid duplicate logs
