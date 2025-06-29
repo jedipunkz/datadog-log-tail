@@ -202,14 +202,14 @@ func (t *TUI) displayLogs(logs []map[string]interface{}) {
 
 	t.app.QueueUpdateDraw(func() {
 		for _, log := range logs {
-			// Convert log to JSON format
-			jsonBytes, err := json.MarshalIndent(log, "", "  ")
+			// Convert log to compact JSON format (single line)
+			jsonBytes, err := json.Marshal(log)
 			if err != nil {
 				_, _ = fmt.Fprintf(t.logView, "[red]Error formatting log as JSON: %v[white]\n", err)
 				continue
 			}
 
-			// Add color highlighting to the JSON
+			// Add color highlighting to the compact JSON
 			jsonStr := string(jsonBytes)
 
 			// Color the JSON output for better readability
@@ -221,12 +221,9 @@ func (t *TUI) displayLogs(logs []map[string]interface{}) {
 			jsonStr = strings.ReplaceAll(jsonStr, `"attributes":`, `[lightblue]"attributes":[white]`)
 			jsonStr = strings.ReplaceAll(jsonStr, `"id":`, `[magenta]"id":[white]`)
 
-			// Print the colored JSON
+			// Print the colored JSON on a single line
 			_, _ = fmt.Fprint(t.logView, jsonStr)
 			_, _ = fmt.Fprint(t.logView, "\n")
-
-			// Add separator line for readability
-			_, _ = fmt.Fprint(t.logView, "[darkgray]"+strings.Repeat("─", 80)+"[white]\n")
 		}
 
 		// Auto-scroll to bottom
