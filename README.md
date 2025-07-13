@@ -125,12 +125,6 @@ TUI (Terminal User Interface) mode provides an interactive interface for viewing
 ```bash
 # Enable TUI mode
 dlt --tui
-
-# TUI mode with filters
-dlt --tui --query "service:web" --level error
-
-# Get logs from time range with filters
-dlt --timestamp "2024-01-15T10:00:00Z,2024-01-15T11:00:00Z" --query "service:web" --level error
 ```
 
 TUI mode features:
