@@ -13,7 +13,7 @@ import (
 
 var (
 	cfgFile string
-	tags    string
+	query   string
 	level   string
 	format  string
 	tuiMode bool
@@ -29,9 +29,9 @@ Authentication is configured via environment variables, and log filtering is ava
 
 Examples:
   dlt                                    # Basic usage
-  dlt --tags "service:web,env:prod"     # Filter by tags
+  dlt --query "service:web,env:prod"     # Filter by tags
   dlt --level error --format json       # Filter by log level and output format
-  dlt --level error,warn --tags "env:prod" # Filter by multiple log levels and tags`,
+  dlt --level error,warn --query "env:prod" # Filter by multiple log levels and tags`,
 	RunE: runTail,
 }
 
@@ -44,11 +44,11 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	// Global flags
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Configuration file (default: ~/.dlt/config.yaml)")
-	rootCmd.PersistentFlags().StringVar(&tags, "tags", "", "Tag filter (comma-separated)")
-	rootCmd.PersistentFlags().StringVar(&level, "level", "", "Log level (debug, info, warn, error) - supports comma-separated values")
-	rootCmd.PersistentFlags().StringVar(&format, "format", "", "Output format (json, text)")
-	rootCmd.PersistentFlags().BoolVar(&tuiMode, "tui", false, "Enable TUI mode for interactive log viewing")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Configuration file (default: ~/.dlt/config.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&query, "query", "q", "", "Tag filter (comma-separated)")
+	rootCmd.PersistentFlags().StringVarP(&level, "level", "l", "", "Log level (debug, info, warn, error) - supports comma-separated values")
+	rootCmd.PersistentFlags().StringVarP(&format, "format", "f", "", "Output format (json, text)")
+	rootCmd.PersistentFlags().BoolVarP(&tuiMode, "tui", "t", false, "Enable TUI mode for interactive log viewing")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -77,8 +77,8 @@ func runTail(cmd *cobra.Command, args []string) error {
 	}
 
 	// Apply flag values to configuration
-	if tags != "" {
-		cfg.Tags = tags
+	if query != "" {
+		cfg.Tags = query
 	}
 	if level != "" {
 		cfg.LogLevel = level
