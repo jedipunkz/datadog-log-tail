@@ -93,8 +93,6 @@ dlt --tui
 | `--level` | Log level (debug, info, warn, error) | - |
 | `--format` | Output format (json, text) | text |
 | `--tui` | Enable TUI mode for interactive log viewing | false |
-| `--timeout` | Connection timeout (seconds) | 30 |
-| `--retry` | Retry count | 3 |
 | `--config` | Configuration file path | ~/.dlt/config.yaml |
 
 ### Examples
@@ -105,9 +103,6 @@ dlt --tags "service:web" --level error --format json
 
 # Filter by multiple tags
 dlt --tags "service:api,env:staging,version:v1.0"
-
-# Adjust timeout and retry count
-dlt --timeout 60 --retry 5
 
 # Use custom configuration file
 dlt --config /path/to/config.yaml
