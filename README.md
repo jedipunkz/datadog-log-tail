@@ -91,14 +91,14 @@ dlt --timestamp "2024-01-15T10:00:00Z,2024-01-15T11:00:00Z"
 
 ### Flags
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--query` | Tag filter (comma-separated) | - |
-| `--level` | Log level (debug, info, warn, error) | - |
-| `--format` | Output format (json, text) | text |
-| `--tui` | Enable TUI mode for interactive log viewing | false |
-| `--timestamp` | Time range for log search in RFC3339 format (from,to) | - |
-| `--config` | Configuration file path | ~/.dlt/config.yaml |
+| Flag | Short | Description | Default |
+|------|-------|-------------|---------|
+| `--query` | `-q` | Tag filter (comma-separated) | - |
+| `--level` | `-l` | Log level (debug, info, warn, error) | - |
+| `--format` | `-f` | Output format (json, text) | text |
+| `--tui` | `-t` | Enable TUI mode for interactive log viewing | false |
+| `--timestamp` | `-s` | Time range for log search in RFC3339 format (from,to) | - |
+| `--config` | `-c` | Configuration file path | ~/.dlt/config.yaml |
 
 **Note:** When using `--timestamp` with long time ranges, you may encounter Datadog API rate limits. The tool automatically handles rate limiting with exponential backoff and retries, but large datasets may take longer to retrieve.
 
@@ -139,40 +139,7 @@ TUI mode features:
 - Enhanced visual formatting
 - Keyboard navigation
 
-## Output Formats
-
-### Text Format (Default)
-
-```
-[2024-01-15 10:30:45] [ERROR] [web-service] Database connection failed [service:web, env:prod]
-[2024-01-15 10:30:46] [INFO] [api-service] Request processed successfully [service:api, env:prod]
-```
-
-### JSON Format
-
-```json
-{
-  "id": "log-id-123",
-  "timestamp": 1705311045,
-  "message": "Database connection failed",
-  "service": "web-service",
-  "status": "error",
-  "tags": ["service:web", "env:prod"],
-  "attributes": {
-    "host": "web-server-1",
-    "port": 5432
-  }
-}
-```
-
 ## License
 
 MIT License
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Create a Pull Request
