@@ -18,6 +18,7 @@ type Config struct {
 	LogLevel     string   `mapstructure:"log_level"`
 	LogLevels    []string `mapstructure:"log_levels"`
 	OutputFormat string   `mapstructure:"output_format"`
+	Timestamp    string   `mapstructure:"timestamp"`
 	Timeout      int      `mapstructure:"timeout"`
 	RetryCount   int      `mapstructure:"retry_count"`
 }
@@ -160,6 +161,11 @@ func (c *Config) GetTimeout() int {
 // GetRetryCount returns the retry count
 func (c *Config) GetRetryCount() int {
 	return c.RetryCount
+}
+
+// GetTimestamp returns the timestamp filter
+func (c *Config) GetTimestamp() string {
+	return c.Timestamp
 }
 
 // CreateDefaultConfig creates a default configuration file

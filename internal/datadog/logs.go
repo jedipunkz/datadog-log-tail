@@ -350,6 +350,227 @@ func (c *Client) GetLogs(cfg *config.Config) ([]map[string]interface{}, error) {
 	return result, nil
 }
 
+// GetLogsFromTimestamp retrieves logs from a time range (batch mode)
+func (c *Client) GetLogsFromTimestamp() error {
+	ctx := context.Background()
+	formatter := output.NewFormatter(c.config.GetOutputFormat())
+
+	// Parse the time range from config
+	timestampStr := c.config.GetTimestamp()
+	
+	// Ensure it's a range format (must contain comma)
+	if !strings.Contains(timestampStr, ",") {
+		return fmt.Errorf("timestamp must be a time range in format: from,to (e.g. 2024-01-15T10:00:00Z,2024-01-15T11:00:00Z)")
+	}
+
+	// Parse time range
+	parts := strings.Split(timestampStr, ",")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid timestamp range format (use: from,to in RFC3339, e.g. 2024-01-15T10:00:00Z,2024-01-15T11:00:00Z)")
+	}
+
+	from, err := time.Parse(time.RFC3339, strings.TrimSpace(parts[0]))
+	if err != nil {
+		return fmt.Errorf("invalid start timestamp format (use RFC3339, e.g. 2024-01-15T10:00:00Z): %w", err)
+	}
+
+	to, err := time.Parse(time.RFC3339, strings.TrimSpace(parts[1]))
+	if err != nil {
+		return fmt.Errorf("invalid end timestamp format (use RFC3339, e.g. 2024-01-15T10:00:00Z): %w", err)
+	}
+
+	if !to.After(from) {
+		return fmt.Errorf("end timestamp must be after start timestamp")
+	}
+
+	fmt.Printf("Retrieving logs from %s to %s...\n", from.Format(time.RFC3339), to.Format(time.RFC3339))
+	fmt.Printf("Output format: %s\n", c.config.GetOutputFormat())
+	if c.config.GetTags() != "" {
+		fmt.Printf("Tag filter: %s\n", c.config.GetTags())
+	}
+	if c.config.GetLogLevel() != "" {
+		fmt.Printf("Log level: %s\n", c.config.GetLogLevel())
+	}
+	fmt.Println("---")
+
+	// Fetch all logs using pagination
+	allLogs, err := c.fetchAllLogsV2(ctx, from, to)
+	if err != nil {
+		return fmt.Errorf("failed to fetch logs: %w", err)
+	}
+
+	if len(allLogs) == 0 {
+		fmt.Println("No logs found for the specified time range.")
+		return nil
+	}
+
+	// Output all logs
+	for _, log := range allLogs {
+		formatted, err := formatter.Format(log)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to format log: %v\n", err)
+			continue
+		}
+		fmt.Println(formatted)
+	}
+
+	fmt.Printf("\nRetrieved %d log entries.\n", len(allLogs))
+	return nil
+}
+
+// fetchAllLogsV2 fetches all logs from Datadog Logs API v2 using pagination with rate limiting
+func (c *Client) fetchAllLogsV2(ctx context.Context, from, to time.Time) ([]LogEntry, error) {
+	var allLogs []LogEntry
+	var cursor string
+	pageSize := 500 // Reduce page size to be more conservative
+	retryCount := 0
+	maxRetries := 5
+	baseDelay := 2 * time.Second
+	
+	for {
+		logs, nextCursor, err := c.fetchLogsV2WithPagination(ctx, from, to, cursor, pageSize)
+		if err != nil {
+			// Handle rate limiting with exponential backoff
+			if strings.Contains(err.Error(), "429") {
+				if retryCount >= maxRetries {
+					return nil, fmt.Errorf("maximum retry count reached due to rate limiting: %w", err)
+				}
+				
+				// Exponential backoff with jitter
+				backoffDelay := time.Duration(float64(baseDelay) * math.Pow(2, float64(retryCount)))
+				jitter := time.Duration(rand.Intn(int(backoffDelay / 4))) // Add up to 25% jitter
+				totalDelay := backoffDelay + jitter
+				
+				fmt.Fprintf(os.Stderr, "Rate limit reached. Retrying in %v... (attempt %d/%d)\n", totalDelay, retryCount+1, maxRetries)
+				time.Sleep(totalDelay)
+				retryCount++
+				continue
+			}
+			return nil, err
+		}
+		
+		// Reset retry count on successful request
+		retryCount = 0
+		allLogs = append(allLogs, logs...)
+		
+		// If no next cursor, we've reached the end
+		if nextCursor == "" {
+			break
+		}
+		cursor = nextCursor
+		
+		// Show progress for large datasets
+		if len(allLogs)%500 == 0 {
+			fmt.Fprintf(os.Stderr, "Retrieved %d log entries so far...\n", len(allLogs))
+		}
+		
+		// Add a small delay between requests to avoid hitting rate limits
+		time.Sleep(500 * time.Millisecond)
+	}
+	
+	return allLogs, nil
+}
+
+// fetchLogsV2WithPagination fetches logs with pagination support
+func (c *Client) fetchLogsV2WithPagination(ctx context.Context, from, to time.Time, cursor string, limit int) ([]LogEntry, string, error) {
+	endpoint := "/api/v2/logs/events/search"
+
+	query := c.buildQueryV2()
+	body := map[string]interface{}{
+		"filter": map[string]interface{}{
+			"from":  from.UTC().Format(time.RFC3339),
+			"to":    to.UTC().Format(time.RFC3339),
+			"query": query,
+		},
+		"page": map[string]interface{}{
+			"limit": limit,
+		},
+		"sort": "timestamp",
+	}
+	
+	// Add cursor for pagination if available
+	if cursor != "" {
+		body["page"].(map[string]interface{})["cursor"] = cursor
+	}
+	
+	jsonBody, _ := json.Marshal(body)
+
+	req, err := c.createRequest(ctx, "POST", endpoint)
+	if err != nil {
+		return nil, "", err
+	}
+	req.Body = io.NopCloser(bytes.NewReader(jsonBody))
+	req.ContentLength = int64(len(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to execute HTTP request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, "", fmt.Errorf("API error: %s - %s", resp.Status, string(body))
+	}
+
+	var v2resp v2LogsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&v2resp); err != nil {
+		return nil, "", fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	var logs []LogEntry
+	var latest time.Time
+	for _, d := range v2resp.Data {
+		ts, _ := time.Parse(time.RFC3339Nano, d.Attrs.Timestamp)
+
+		// Extract message from multiple possible fields
+		message := d.Attrs.Message
+		if message == "" {
+			message = d.Attrs.Content
+		}
+		if message == "" {
+			message = d.Attrs.Text
+		}
+		if message == "" {
+			message = d.Attrs.Log
+		}
+		if message == "" {
+			message = "No message content"
+		}
+
+		// Extract service name
+		service := d.Attrs.Service
+		if service == "" {
+			service = d.Attrs.Host
+		}
+
+		// Extract status/log level
+		status := d.Attrs.Status
+		if status == "" {
+			status = d.Attrs.LogLevel
+		}
+
+		log := LogEntry{
+			ID:         d.ID,
+			Timestamp:  ts.Unix(),
+			Message:    message,
+			Service:    service,
+			Status:     status,
+			Tags:       d.Attrs.Tags,
+			Attributes: d.Attrs.Attributes,
+		}
+		logs = append(logs, log)
+		if ts.After(latest) {
+			latest = ts
+		}
+	}
+	
+	// Return the next cursor for pagination
+	nextCursor := v2resp.Meta.Page.After
+	return logs, nextCursor, nil
+}
+
 // buildQueryV2 builds Datadog v2 query
 func (c *Client) buildQueryV2() string {
 	var conditions []string
