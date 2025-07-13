@@ -73,10 +73,10 @@ retry_count: 3
 dlt
 
 # Filter by tags
-dlt --tags "service:web,env:production"
+dlt --query "service:web,env:production"
 
 # Filter by log level
-dlt --tags "service:api" --level error
+dlt --query "service:api" --level error
 
 # Specify output format
 dlt --format json
@@ -89,7 +89,7 @@ dlt --tui
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--tags` | Tag filter (comma-separated) | - |
+| `--query` | Tag filter (comma-separated) | - |
 | `--level` | Log level (debug, info, warn, error) | - |
 | `--format` | Output format (json, text) | text |
 | `--tui` | Enable TUI mode for interactive log viewing | false |
@@ -99,16 +99,16 @@ dlt --tui
 
 ```bash
 # Get error logs for a specific service in JSON format
-dlt --tags "service:web" --level error --format json
+dlt --query "service:web" --level error --format json
 
 # Filter by multiple tags
-dlt --tags "service:api,env:staging,version:v1.0"
+dlt --query "service:api,env:staging,version:v1.0"
 
 # Use custom configuration file
 dlt --config /path/to/config.yaml
 
 # Start TUI mode with filters
-dlt --tui --tags "service:web" --level error
+dlt --tui --query "service:web" --level error
 ```
 
 ## TUI Mode
@@ -120,7 +120,7 @@ TUI (Terminal User Interface) mode provides an interactive interface for viewing
 dlt --tui
 
 # TUI mode with filters
-dlt --tui --tags "service:web" --level error
+dlt --tui --query "service:web" --level error
 ```
 
 TUI mode features:
