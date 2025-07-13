@@ -12,11 +12,12 @@ import (
 )
 
 var (
-	cfgFile string
-	query   string
-	level   string
-	format  string
-	tuiMode bool
+	cfgFile   string
+	query     string
+	level     string
+	format    string
+	timestamp string
+	tuiMode   bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -28,10 +29,11 @@ var rootCmd = &cobra.Command{
 Authentication is configured via environment variables, and log filtering is available via tags.
 
 Examples:
-  dlt                                    # Basic usage
+  dlt                                    # Basic usage (real-time tailing)
   dlt --query "service:web,env:prod"     # Filter by tags
   dlt --level error --format json       # Filter by log level and output format
-  dlt --level error,warn --query "env:prod" # Filter by multiple log levels and tags`,
+  dlt --level error,warn --query "env:prod" # Filter by multiple log levels and tags
+  dlt --timestamp "2024-01-15T10:00:00Z,2024-01-15T11:00:00Z" # Get logs from time range (batch mode)`,
 	RunE: runTail,
 }
 
@@ -48,6 +50,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&query, "query", "q", "", "Tag filter (comma-separated)")
 	rootCmd.PersistentFlags().StringVarP(&level, "level", "l", "", "Log level (debug, info, warn, error) - supports comma-separated values")
 	rootCmd.PersistentFlags().StringVarP(&format, "format", "f", "", "Output format (json, text)")
+	rootCmd.PersistentFlags().StringVarP(&timestamp, "timestamp", "s", "", "Time range for log search in RFC3339 format (from,to): 2024-01-15T10:00:00Z,2024-01-15T11:00:00Z")
 	rootCmd.PersistentFlags().BoolVarP(&tuiMode, "tui", "t", false, "Enable TUI mode for interactive log viewing")
 }
 
@@ -89,6 +92,9 @@ func runTail(cmd *cobra.Command, args []string) error {
 		// Set default if not specified in config file or flag
 		cfg.OutputFormat = "text"
 	}
+	if timestamp != "" {
+		cfg.Timestamp = timestamp
+	}
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
@@ -115,9 +121,17 @@ func runTail(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create Datadog client: %w", err)
 	}
 
-	// Start tailing logs
-	if err := client.TailLogs(); err != nil {
-		return fmt.Errorf("failed to tail logs: %w", err)
+	// Start tailing logs or batch retrieval based on timestamp
+	if cfg.Timestamp != "" {
+		// Batch mode: retrieve logs from specific timestamp
+		if err := client.GetLogsFromTimestamp(); err != nil {
+			return fmt.Errorf("failed to get logs from timestamp: %w", err)
+		}
+	} else {
+		// Tail mode: real-time log streaming
+		if err := client.TailLogs(); err != nil {
+			return fmt.Errorf("failed to tail logs: %w", err)
+		}
 	}
 
 	return nil

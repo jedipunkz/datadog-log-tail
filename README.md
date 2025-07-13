@@ -5,6 +5,7 @@ A Go command-line tool for tailing Datadog Logs in real-time
 ## Features
 
 - Real-time log retrieval using Datadog Logs API
+- Batch log retrieval from specific timestamps
 - Authentication via environment variables
 - Log filtering by tags
 - Log level filtering
@@ -69,7 +70,7 @@ retry_count: 3
 ### Basic Usage
 
 ```bash
-# Basic usage
+# Basic usage (real-time tailing)
 dlt
 
 # Filter by tags
@@ -83,6 +84,9 @@ dlt --format json
 
 # Enable TUI mode
 dlt --tui
+
+# Get logs from time range (batch mode)
+dlt --timestamp "2024-01-15T10:00:00Z,2024-01-15T11:00:00Z"
 ```
 
 ### Flags
@@ -93,7 +97,10 @@ dlt --tui
 | `--level` | Log level (debug, info, warn, error) | - |
 | `--format` | Output format (json, text) | text |
 | `--tui` | Enable TUI mode for interactive log viewing | false |
+| `--timestamp` | Time range for log search in RFC3339 format (from,to) | - |
 | `--config` | Configuration file path | ~/.dlt/config.yaml |
+
+**Note:** When using `--timestamp` with long time ranges, you may encounter Datadog API rate limits. The tool automatically handles rate limiting with exponential backoff and retries, but large datasets may take longer to retrieve.
 
 ### Examples
 
@@ -121,6 +128,9 @@ dlt --tui
 
 # TUI mode with filters
 dlt --tui --query "service:web" --level error
+
+# Get logs from time range with filters
+dlt --timestamp "2024-01-15T10:00:00Z,2024-01-15T11:00:00Z" --query "service:web" --level error
 ```
 
 TUI mode features:
