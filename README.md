@@ -47,23 +47,6 @@ export DD_APP_KEY="your-datadog-application-key"
 export DD_SITE="datadoghq.com"  # Default: datadoghq.com
 ```
 
-### Configuration File
-
-Create a configuration file at `~/.dlt/config.yaml`:
-
-```yaml
-# Log filtering (optional)
-tags: "service:web,env:production"
-log_level: "info"
-
-# Output settings (optional)
-output_format: "text"  # json or text
-
-# Connection settings (optional)
-timeout: 30
-retry_count: 3
-```
-
 ## Usage
 
 ### Basic Usage
@@ -93,7 +76,8 @@ dlt --timestamp "2024-01-15T10:00:00Z,2024-01-15T11:00:00Z"
 | `--level` | `-l` | Log level (debug, info, warn, error) | - |
 | `--format` | `-f` | Output format (json, text) | text |
 | `--timestamp` | `-s` | Time range for log search in RFC3339 format (from,to) | - |
-| `--config` | `-c` | Configuration file path | ~/.dlt/config.yaml |
+| `--timeout` | - | Connection timeout in seconds | 30 |
+| `--retry-count` | - | Number of retries for failed requests | 3 |
 
 **Note:** When using `--timestamp` with long time ranges, you may encounter Datadog API rate limits. The tool automatically handles rate limiting with exponential backoff and retries, but large datasets may take longer to retrieve.
 
@@ -106,8 +90,8 @@ dlt --query "service:web" --level error --format json
 # Filter by multiple tags
 dlt --query "service:api,env:staging,version:v1.0"
 
-# Use custom configuration file
-dlt --config /path/to/config.yaml
+# Use custom timeout and retry settings
+dlt --timeout 60 --retry-count 5
 
 ```
 

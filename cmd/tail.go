@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/jedipunkz/datadog-log-tail/internal/config"
 	"github.com/jedipunkz/datadog-log-tail/internal/datadog"
@@ -11,11 +10,12 @@ import (
 )
 
 var (
-	cfgFile   string
-	query     string
-	level     string
-	format    string
-	timestamp string
+	query      string
+	level      string
+	format     string
+	timestamp  string
+	timeout    int
+	retryCount int
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -41,57 +41,25 @@ func Execute() error {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
 	// Global flags
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Configuration file (default: ~/.dlt/config.yaml)")
 	rootCmd.PersistentFlags().StringVarP(&query, "query", "q", "", "Tag filter (comma-separated)")
 	rootCmd.PersistentFlags().StringVarP(&level, "level", "l", "", "Log level (debug, info, warn, error) - supports comma-separated values")
-	rootCmd.PersistentFlags().StringVarP(&format, "format", "f", "", "Output format (json, text)")
+	rootCmd.PersistentFlags().StringVarP(&format, "format", "f", "text", "Output format (json, text)")
 	rootCmd.PersistentFlags().StringVarP(&timestamp, "timestamp", "s", "", "Time range for log search in RFC3339 format (from,to): 2024-01-15T10:00:00Z,2024-01-15T11:00:00Z")
+	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 30, "Connection timeout in seconds")
+	rootCmd.PersistentFlags().IntVar(&retryCount, "retry-count", 3, "Number of retries for failed requests")
 }
 
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	if cfgFile != "" {
-		// Use specified config file
-		config.SetConfigFile(cfgFile)
-	} else {
-		// Default config file path
-		home, err := os.UserHomeDir()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error getting home directory: %v\n", err)
-			return
-		}
-		config.SetConfigFile(home + "/.dlt/config.yaml")
-	}
-
-	config.AutomaticEnv() // Read environment variables
-}
 
 func runTail(cmd *cobra.Command, args []string) error {
-	// Load and validate configuration
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
-	}
-
-	// Apply flag values to configuration
-	if query != "" {
-		cfg.Tags = query
-	}
-	if level != "" {
-		cfg.LogLevel = level
-	}
-	if format != "" {
-		cfg.OutputFormat = format
-	} else if cfg.OutputFormat == "" {
-		// Set default if not specified in config file or flag
-		cfg.OutputFormat = "text"
-	}
-	if timestamp != "" {
-		cfg.Timestamp = timestamp
-	}
+	// Create configuration from command line flags
+	cfg := config.New()
+	cfg.Tags = query
+	cfg.LogLevel = level
+	cfg.OutputFormat = format
+	cfg.Timestamp = timestamp
+	cfg.Timeout = timeout
+	cfg.RetryCount = retryCount
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
