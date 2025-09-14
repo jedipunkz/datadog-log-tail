@@ -3,59 +3,33 @@ package config
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
-
-	"github.com/spf13/viper"
 )
 
 // Config represents the application configuration
 type Config struct {
-	APIKey       string   `mapstructure:"api_key"`
-	AppKey       string   `mapstructure:"app_key"`
-	Site         string   `mapstructure:"site"`
-	Tags         string   `mapstructure:"tags"`
-	LogLevel     string   `mapstructure:"log_level"`
-	LogLevels    []string `mapstructure:"log_levels"`
-	OutputFormat string   `mapstructure:"output_format"`
-	Timestamp    string   `mapstructure:"timestamp"`
-	Timeout      int      `mapstructure:"timeout"`
-	RetryCount   int      `mapstructure:"retry_count"`
+	APIKey       string
+	AppKey       string
+	Site         string
+	Tags         string
+	LogLevel     string
+	LogLevels    []string
+	OutputFormat string
+	Timestamp    string
+	Timeout      int
+	RetryCount   int
 }
 
-// Load loads configuration from file and environment variables
-func Load() (*Config, error) {
-	// Set default values (except site, which should come from environment)
-	viper.SetDefault("output_format", "text")
-	viper.SetDefault("timeout", 30)
-	viper.SetDefault("retry_count", 3)
-
-	// Read config file if it exists
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, fmt.Errorf("failed to read config file: %w", err)
-		}
-		// Config file not found is not an error
+// New creates a new configuration with default values
+func New() *Config {
+	return &Config{
+		OutputFormat: "text",
+		Timeout:      30,
+		RetryCount:   3,
+		Site:         "datadoghq.com",
 	}
-
-	var config Config
-	if err := viper.Unmarshal(&config); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
-	}
-
-	return &config, nil
 }
 
-// SetConfigFile sets the configuration file path
-func SetConfigFile(configFile string) {
-	viper.SetConfigFile(configFile)
-}
-
-// AutomaticEnv enables automatic environment variable binding
-func AutomaticEnv() {
-	viper.AutomaticEnv()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-}
 
 // Validate validates the configuration
 func (c *Config) Validate() error {
@@ -168,45 +142,3 @@ func (c *Config) GetTimestamp() string {
 	return c.Timestamp
 }
 
-// CreateDefaultConfig creates a default configuration file
-func CreateDefaultConfig() error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	configDir := filepath.Join(home, ".dlt")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
-	}
-
-	configFile := filepath.Join(configDir, "config.yaml")
-	if _, err := os.Stat(configFile); err == nil {
-		return fmt.Errorf("config file already exists: %s", configFile)
-	}
-
-	configContent := `# Datadog Logs Tail Configuration
-# API credentials are loaded from environment variables:
-#   DD_API_KEY - Datadog API key (required)
-#   DD_APP_KEY - Datadog application key (required)
-#   DD_SITE - Datadog site (optional, default: datadoghq.com)
-
-# Log filtering (optional)
-tags: "service:web,env:production"
-log_level: "info"
-
-# Output settings (optional)
-output_format: "text"  # json or text
-
-# Connection settings (optional)
-timeout: 30
-retry_count: 3
-`
-
-	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
-	}
-
-	fmt.Printf("Default configuration file created: %s\n", configFile)
-	return nil
-}
