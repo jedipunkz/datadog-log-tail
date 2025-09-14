@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jedipunkz/datadog-log-tail/internal/config"
 	"github.com/jedipunkz/datadog-log-tail/internal/output"
 	"github.com/jedipunkz/datadog-log-tail/pkg/utils"
 )
@@ -207,11 +206,6 @@ func (c *Client) TailLogs() error {
 	}
 }
 
-// FetchLogsV2 fetches logs from Datadog Logs API v2 (public method for TUI)
-func (c *Client) FetchLogsV2(ctx context.Context, from, to time.Time) ([]LogEntry, time.Time, error) {
-	return c.fetchLogsV2(ctx, from, to)
-}
-
 // fetchLogsV2 fetches logs from Datadog Logs API v2
 func (c *Client) fetchLogsV2(ctx context.Context, from, to time.Time) ([]LogEntry, time.Time, error) {
 	endpoint := "/api/v2/logs/events/search"
@@ -303,53 +297,6 @@ func (c *Client) fetchLogsV2(ctx context.Context, from, to time.Time) ([]LogEntr
 	return logs, latest, nil
 }
 
-// GetLogs fetches logs for TUI mode with custom config
-func (c *Client) GetLogs(cfg *config.Config) ([]map[string]interface{}, error) {
-	ctx := context.Background()
-	from := time.Now().Add(-5 * time.Second) // Further reduced to 5s for better real-time
-	to := time.Now()
-
-	// Temporarily update client config
-	originalTags := c.config.GetTags()
-	originalLevel := c.config.GetLogLevel()
-
-	// Apply temporary config
-	if cfg.GetTags() != "" {
-		c.config.Tags = cfg.GetTags()
-	}
-	if cfg.GetLogLevel() != "" {
-		c.config.LogLevel = cfg.GetLogLevel()
-		c.config.LogLevels = cfg.GetLogLevels()
-	}
-
-	logs, _, err := c.fetchLogsV2(ctx, from, to)
-
-	// Restore original config
-	c.config.Tags = originalTags
-	c.config.LogLevel = originalLevel
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert LogEntry to map for TUI
-	var result []map[string]interface{}
-	for _, log := range logs {
-		logMap := map[string]interface{}{
-			"id":         log.ID,
-			"timestamp":  time.Unix(log.Timestamp, 0).Format("15:04:05"),
-			"message":    log.Message,
-			"service":    log.Service,
-			"level":      log.Status,
-			"tags":       log.Tags,
-			"attributes": log.Attributes,
-		}
-		result = append(result, logMap)
-	}
-
-	return result, nil
-}
-
 // GetLogsFromTimestamp retrieves logs from a time range (batch mode)
 func (c *Client) GetLogsFromTimestamp() error {
 	ctx := context.Background()
@@ -357,7 +304,7 @@ func (c *Client) GetLogsFromTimestamp() error {
 
 	// Parse the time range from config
 	timestampStr := c.config.GetTimestamp()
-	
+
 	// Ensure it's a range format (must contain comma)
 	if !strings.Contains(timestampStr, ",") {
 		return fmt.Errorf("timestamp must be a time range in format: from,to (e.g. 2024-01-15T10:00:00Z,2024-01-15T11:00:00Z)")
@@ -426,7 +373,7 @@ func (c *Client) fetchAllLogsV2(ctx context.Context, from, to time.Time) ([]LogE
 	retryCount := 0
 	maxRetries := 5
 	baseDelay := 2 * time.Second
-	
+
 	for {
 		logs, nextCursor, err := c.fetchLogsV2WithPagination(ctx, from, to, cursor, pageSize)
 		if err != nil {
@@ -435,12 +382,12 @@ func (c *Client) fetchAllLogsV2(ctx context.Context, from, to time.Time) ([]LogE
 				if retryCount >= maxRetries {
 					return nil, fmt.Errorf("maximum retry count reached due to rate limiting: %w", err)
 				}
-				
+
 				// Exponential backoff with jitter
 				backoffDelay := time.Duration(float64(baseDelay) * math.Pow(2, float64(retryCount)))
 				jitter := time.Duration(rand.Intn(int(backoffDelay / 4))) // Add up to 25% jitter
 				totalDelay := backoffDelay + jitter
-				
+
 				fmt.Fprintf(os.Stderr, "Rate limit reached. Retrying in %v... (attempt %d/%d)\n", totalDelay, retryCount+1, maxRetries)
 				time.Sleep(totalDelay)
 				retryCount++
@@ -448,26 +395,26 @@ func (c *Client) fetchAllLogsV2(ctx context.Context, from, to time.Time) ([]LogE
 			}
 			return nil, err
 		}
-		
+
 		// Reset retry count on successful request
 		retryCount = 0
 		allLogs = append(allLogs, logs...)
-		
+
 		// If no next cursor, we've reached the end
 		if nextCursor == "" {
 			break
 		}
 		cursor = nextCursor
-		
+
 		// Show progress for large datasets
 		if len(allLogs)%500 == 0 {
 			fmt.Fprintf(os.Stderr, "Retrieved %d log entries so far...\n", len(allLogs))
 		}
-		
+
 		// Add a small delay between requests to avoid hitting rate limits
 		time.Sleep(500 * time.Millisecond)
 	}
-	
+
 	return allLogs, nil
 }
 
@@ -487,12 +434,12 @@ func (c *Client) fetchLogsV2WithPagination(ctx context.Context, from, to time.Ti
 		},
 		"sort": "timestamp",
 	}
-	
+
 	// Add cursor for pagination if available
 	if cursor != "" {
 		body["page"].(map[string]interface{})["cursor"] = cursor
 	}
-	
+
 	jsonBody, _ := json.Marshal(body)
 
 	req, err := c.createRequest(ctx, "POST", endpoint)
@@ -565,7 +512,7 @@ func (c *Client) fetchLogsV2WithPagination(ctx context.Context, from, to time.Ti
 			latest = ts
 		}
 	}
-	
+
 	// Return the next cursor for pagination
 	nextCursor := v2resp.Meta.Page.After
 	return logs, nextCursor, nil
@@ -583,7 +530,7 @@ func (c *Client) buildQueryV2() string {
 			}
 		}
 	}
-	
+
 	// Handle multiple log levels
 	levels := c.config.GetLogLevels()
 	if len(levels) > 0 {
@@ -601,6 +548,6 @@ func (c *Client) buildQueryV2() string {
 		// Fallback for backward compatibility
 		conditions = append(conditions, fmt.Sprintf("status:%s", c.config.GetLogLevel()))
 	}
-	
+
 	return strings.Join(conditions, " ")
 }

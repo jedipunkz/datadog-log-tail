@@ -10,7 +10,6 @@ A Go command-line tool for tailing Datadog Logs in real-time
 - Log filtering by tags
 - Log level filtering
 - Multiple output formats (JSON, plain text)
-- Interactive TUI (Terminal User Interface) mode
 
 ## Installation
 
@@ -82,9 +81,6 @@ dlt --query "service:api" --level error
 # Specify output format
 dlt --format json
 
-# Enable TUI mode
-dlt --tui
-
 # Get logs from time range (batch mode)
 dlt --timestamp "2024-01-15T10:00:00Z,2024-01-15T11:00:00Z"
 ```
@@ -96,7 +92,6 @@ dlt --timestamp "2024-01-15T10:00:00Z,2024-01-15T11:00:00Z"
 | `--query` | `-q` | Tag filter (comma-separated) | - |
 | `--level` | `-l` | Log level (debug, info, warn, error) | - |
 | `--format` | `-f` | Output format (json, text) | text |
-| `--tui` | `-t` | Enable TUI mode for interactive log viewing | false |
 | `--timestamp` | `-s` | Time range for log search in RFC3339 format (from,to) | - |
 | `--config` | `-c` | Configuration file path | ~/.dlt/config.yaml |
 
@@ -114,24 +109,7 @@ dlt --query "service:api,env:staging,version:v1.0"
 # Use custom configuration file
 dlt --config /path/to/config.yaml
 
-# Start TUI mode with filters
-dlt --tui --query "service:web" --level error
 ```
-
-## TUI Mode
-
-TUI (Terminal User Interface) mode provides an interactive interface for viewing logs with enhanced navigation and filtering capabilities.
-
-```bash
-# Enable TUI mode
-dlt --tui
-```
-
-TUI mode features:
-- Interactive log viewing with scrolling
-- Real-time log updates
-- Enhanced visual formatting
-- Keyboard navigation
 
 ## License
 

@@ -95,7 +95,7 @@ func (c *Config) Validate() error {
 		levels := strings.Split(c.LogLevel, ",")
 		c.LogLevels = make([]string, 0, len(levels))
 		validLevels := []string{"debug", "info", "warn", "error"}
-		
+
 		for _, level := range levels {
 			level = strings.TrimSpace(level)
 			if level == "" {
