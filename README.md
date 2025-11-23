@@ -55,7 +55,12 @@ dlt -s "2025-01-15T10:00:00Z,2025-01-15T11:00:00Z"
 | `--retry-count` | - | Number of retries for failed requests | 3 |
 
 
-**Note:** When using `--timestamp` with long time ranges, you may encounter Datadog API rate limits. The tool automatically handles rate limiting with exponential backoff and retries, but large datasets may take longer to retrieve.
+**Note:** When using `--timestamp` with long time ranges, you may encounter Datadog API rate limits. The tool automatically handles rate limiting with intelligent strategies:
+- Monitors Datadog's rate limit headers (X-RateLimit-*) in real-time
+- Implements preemptive backoff when quota is low (< 20%)
+- Uses exponential backoff with jitter when rate limited
+- Adjusts request frequency based on log activity
+- Conservative default intervals to minimize rate limit hits
 
 ## License
 

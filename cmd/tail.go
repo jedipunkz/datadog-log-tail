@@ -50,7 +50,6 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&retryCount, "retry-count", 3, "Number of retries for failed requests")
 }
 
-
 func runTail(cmd *cobra.Command, args []string) error {
 	// Create configuration from command line flags
 	cfg := config.New()
