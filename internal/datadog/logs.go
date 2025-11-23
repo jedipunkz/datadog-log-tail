@@ -89,10 +89,10 @@ func (c *Client) TailLogs() error {
 	var lastTimestamp time.Time
 	retryCount := 0
 	maxRetries := c.config.GetRetryCount()
-	baseInterval := 3 * time.Second // Conservative base interval to avoid rate limits
+	baseInterval := 4 * time.Second // More conservative base interval to avoid rate limits
 	currentInterval := baseInterval
 	maxInterval := 30 * time.Second     // Reasonable maximum interval
-	minInterval := 2 * time.Second      // Safer minimum interval to respect rate limits
+	minInterval := 3 * time.Second      // More conservative minimum interval to respect rate limits
 	rateLimitBackoff := 5 * time.Second // Initial backoff when rate limited
 	consecutiveSuccesses := 0           // Track consecutive successful requests
 	searchWindow := 30 * time.Second    // Dynamic search window
@@ -110,6 +110,13 @@ func (c *Client) TailLogs() error {
 			from = lastTimestamp.Add(1 * time.Nanosecond)
 		}
 		to := time.Now()
+
+		// Check if we should preemptively back off based on rate limit quota
+		if shouldBackoff, backoffDuration, limit, remaining, reset := c.shouldBackoffForRateLimit(); shouldBackoff {
+			fmt.Fprintf(os.Stderr, "Rate limit quota low (remaining: %d/%d, resets: %s). Backing off for %v...\n",
+				remaining, limit, reset.Format(time.RFC3339), backoffDuration)
+			time.Sleep(backoffDuration)
+		}
 
 		logs, latest, err := c.fetchLogsV2(ctx, from, to)
 		if err != nil {
@@ -237,6 +244,9 @@ func (c *Client) fetchLogsV2(ctx context.Context, from, to time.Time) ([]LogEntr
 		return nil, time.Time{}, fmt.Errorf("failed to execute HTTP request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+
+	// Update rate limit info from response headers
+	c.updateRateLimitInfo(resp)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
@@ -369,7 +379,7 @@ func (c *Client) GetLogsFromTimestamp() error {
 func (c *Client) fetchAllLogsV2(ctx context.Context, from, to time.Time) ([]LogEntry, error) {
 	var allLogs []LogEntry
 	var cursor string
-	pageSize := 500 // Reduce page size to be more conservative
+	pageSize := 200 // More conservative page size to reduce API load
 	retryCount := 0
 	maxRetries := 5
 	baseDelay := 2 * time.Second
@@ -411,8 +421,17 @@ func (c *Client) fetchAllLogsV2(ctx context.Context, from, to time.Time) ([]LogE
 			fmt.Fprintf(os.Stderr, "Retrieved %d log entries so far...\n", len(allLogs))
 		}
 
-		// Add a small delay between requests to avoid hitting rate limits
-		time.Sleep(500 * time.Millisecond)
+		// Calculate delay based on rate limit status
+		delay := 1 * time.Second // More conservative base delay between pagination requests
+
+		// Check rate limit and adjust delay if needed
+		if shouldBackoff, backoffDuration, limit, remaining, _ := c.shouldBackoffForRateLimit(); shouldBackoff {
+			fmt.Fprintf(os.Stderr, "Rate limit quota low (remaining: %d/%d). Increasing delay to %v...\n",
+				remaining, limit, backoffDuration)
+			delay = backoffDuration
+		}
+
+		time.Sleep(delay)
 	}
 
 	return allLogs, nil
@@ -455,6 +474,9 @@ func (c *Client) fetchLogsV2WithPagination(ctx context.Context, from, to time.Ti
 		return nil, "", fmt.Errorf("failed to execute HTTP request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+
+	// Update rate limit info from response headers
+	c.updateRateLimitInfo(resp)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)

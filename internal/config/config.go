@@ -30,7 +30,6 @@ func New() *Config {
 	}
 }
 
-
 // Validate validates the configuration
 func (c *Config) Validate() error {
 	// API key must be set via environment variable
@@ -141,4 +140,3 @@ func (c *Config) GetRetryCount() int {
 func (c *Config) GetTimestamp() string {
 	return c.Timestamp
 }
-

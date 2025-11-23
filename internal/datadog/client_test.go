@@ -106,9 +106,10 @@ func TestClient_doRequest_Success(t *testing.T) {
 	}
 
 	client := &Client{
-		config:     cfg,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
-		baseURL:    server.URL,
+		config:        cfg,
+		httpClient:    &http.Client{Timeout: 30 * time.Second},
+		baseURL:       server.URL,
+		rateLimitInfo: &RateLimitInfo{},
 	}
 
 	req, err := client.createRequest(context.Background(), "GET", "/test")
@@ -142,9 +143,10 @@ func TestClient_doRequest_Error(t *testing.T) {
 	}
 
 	client := &Client{
-		config:     cfg,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
-		baseURL:    server.URL,
+		config:        cfg,
+		httpClient:    &http.Client{Timeout: 30 * time.Second},
+		baseURL:       server.URL,
+		rateLimitInfo: &RateLimitInfo{},
 	}
 
 	req, err := client.createRequest(context.Background(), "GET", "/test")
@@ -160,6 +162,151 @@ func TestClient_doRequest_Error(t *testing.T) {
 	expectedError := "403 Forbidden"
 	if !contains(err.Error(), expectedError) {
 		t.Errorf("Error = %v, want to contain %v", err.Error(), expectedError)
+	}
+}
+
+func TestClient_updateRateLimitInfo(t *testing.T) {
+	// Create test server that returns rate limit headers
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-RateLimit-Limit", "1000")
+		w.Header().Set("X-RateLimit-Remaining", "500")
+		w.Header().Set("X-RateLimit-Reset", "1700000000")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data": []}`))
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		APIKey:  "test-api-key",
+		AppKey:  "test-app-key",
+		Timeout: 30,
+	}
+
+	client := &Client{
+		config:        cfg,
+		httpClient:    &http.Client{Timeout: 30 * time.Second},
+		baseURL:       server.URL,
+		rateLimitInfo: &RateLimitInfo{},
+	}
+
+	req, err := client.createRequest(context.Background(), "GET", "/test")
+	if err != nil {
+		t.Fatalf("createRequest() error = %v", err)
+	}
+
+	_, err = client.doRequest(req)
+	if err != nil {
+		t.Fatalf("doRequest() error = %v", err)
+	}
+
+	limit, remaining, reset := client.getRateLimitInfo()
+	if limit != 1000 {
+		t.Errorf("Limit = %d, want 1000", limit)
+	}
+	if remaining != 500 {
+		t.Errorf("Remaining = %d, want 500", remaining)
+	}
+	if reset.Unix() != 1700000000 {
+		t.Errorf("Reset = %v, want %v", reset.Unix(), 1700000000)
+	}
+}
+
+func TestClient_shouldBackoffForRateLimit(t *testing.T) {
+	cfg := &config.Config{
+		APIKey:  "test-api-key",
+		AppKey:  "test-app-key",
+		Timeout: 30,
+	}
+
+	tests := []struct {
+		name              string
+		limit             int
+		remaining         int
+		reset             time.Time
+		expectBackoff     bool
+		minBackoffSeconds float64
+	}{
+		{
+			name:          "No rate limit info",
+			limit:         0,
+			remaining:     0,
+			reset:         time.Time{},
+			expectBackoff: false,
+		},
+		{
+			name:          "High quota remaining (80%)",
+			limit:         1000,
+			remaining:     800,
+			reset:         time.Now().Add(time.Hour),
+			expectBackoff: false,
+		},
+		{
+			name:              "Low quota (15%)",
+			limit:             1000,
+			remaining:         150,
+			reset:             time.Now().Add(time.Hour),
+			expectBackoff:     true,
+			minBackoffSeconds: 2,
+		},
+		{
+			name:              "Very low quota (8%)",
+			limit:             1000,
+			remaining:         80,
+			reset:             time.Now().Add(time.Hour),
+			expectBackoff:     true,
+			minBackoffSeconds: 5,
+		},
+		{
+			name:              "Critical quota (3%)",
+			limit:             1000,
+			remaining:         30,
+			reset:             time.Now().Add(time.Hour),
+			expectBackoff:     true,
+			minBackoffSeconds: 10,
+		},
+		{
+			name:              "Quota exhausted",
+			limit:             1000,
+			remaining:         0,
+			reset:             time.Now().Add(10 * time.Second),
+			expectBackoff:     true,
+			minBackoffSeconds: 10,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, err := NewClient(cfg)
+			if err != nil {
+				t.Fatalf("NewClient() error = %v", err)
+			}
+
+			// Set rate limit info
+			client.rateLimitInfo.Limit = tt.limit
+			client.rateLimitInfo.Remaining = tt.remaining
+			client.rateLimitInfo.Reset = tt.reset
+
+			shouldBackoff, backoffDuration, limit, remaining, reset := client.shouldBackoffForRateLimit()
+
+			if shouldBackoff != tt.expectBackoff {
+				t.Errorf("shouldBackoff = %v, want %v", shouldBackoff, tt.expectBackoff)
+			}
+
+			if tt.expectBackoff && backoffDuration.Seconds() < tt.minBackoffSeconds {
+				t.Errorf("backoffDuration = %v, want at least %v seconds", backoffDuration, tt.minBackoffSeconds)
+			}
+
+			// Verify returned rate limit info matches what we set
+			if limit != tt.limit {
+				t.Errorf("returned limit = %d, want %d", limit, tt.limit)
+			}
+			if remaining != tt.remaining {
+				t.Errorf("returned remaining = %d, want %d", remaining, tt.remaining)
+			}
+			if !reset.Equal(tt.reset) {
+				t.Errorf("returned reset = %v, want %v", reset, tt.reset)
+			}
+		})
 	}
 }
 
