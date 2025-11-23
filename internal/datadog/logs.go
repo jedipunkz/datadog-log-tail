@@ -112,8 +112,7 @@ func (c *Client) TailLogs() error {
 		to := time.Now()
 
 		// Check if we should preemptively back off based on rate limit quota
-		if shouldBackoff, backoffDuration := c.shouldBackoffForRateLimit(); shouldBackoff {
-			limit, remaining, reset := c.getRateLimitInfo()
+		if shouldBackoff, backoffDuration, limit, remaining, reset := c.shouldBackoffForRateLimit(); shouldBackoff {
 			fmt.Fprintf(os.Stderr, "Rate limit quota low (remaining: %d/%d, resets: %s). Backing off for %v...\n",
 				remaining, limit, reset.Format(time.RFC3339), backoffDuration)
 			time.Sleep(backoffDuration)
@@ -426,8 +425,7 @@ func (c *Client) fetchAllLogsV2(ctx context.Context, from, to time.Time) ([]LogE
 		delay := 1 * time.Second // More conservative base delay between pagination requests
 
 		// Check rate limit and adjust delay if needed
-		if shouldBackoff, backoffDuration := c.shouldBackoffForRateLimit(); shouldBackoff {
-			limit, remaining, _ := c.getRateLimitInfo()
+		if shouldBackoff, backoffDuration, limit, remaining, _ := c.shouldBackoffForRateLimit(); shouldBackoff {
 			fmt.Fprintf(os.Stderr, "Rate limit quota low (remaining: %d/%d). Increasing delay to %v...\n",
 				remaining, limit, backoffDuration)
 			delay = backoffDuration

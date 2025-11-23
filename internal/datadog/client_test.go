@@ -286,7 +286,7 @@ func TestClient_shouldBackoffForRateLimit(t *testing.T) {
 			client.rateLimitInfo.Remaining = tt.remaining
 			client.rateLimitInfo.Reset = tt.reset
 
-			shouldBackoff, backoffDuration := client.shouldBackoffForRateLimit()
+			shouldBackoff, backoffDuration, limit, remaining, reset := client.shouldBackoffForRateLimit()
 
 			if shouldBackoff != tt.expectBackoff {
 				t.Errorf("shouldBackoff = %v, want %v", shouldBackoff, tt.expectBackoff)
@@ -294,6 +294,17 @@ func TestClient_shouldBackoffForRateLimit(t *testing.T) {
 
 			if tt.expectBackoff && backoffDuration.Seconds() < tt.minBackoffSeconds {
 				t.Errorf("backoffDuration = %v, want at least %v seconds", backoffDuration, tt.minBackoffSeconds)
+			}
+
+			// Verify returned rate limit info matches what we set
+			if limit != tt.limit {
+				t.Errorf("returned limit = %d, want %d", limit, tt.limit)
+			}
+			if remaining != tt.remaining {
+				t.Errorf("returned remaining = %d, want %d", remaining, tt.remaining)
+			}
+			if !reset.Equal(tt.reset) {
+				t.Errorf("returned reset = %v, want %v", reset, tt.reset)
 			}
 		})
 	}

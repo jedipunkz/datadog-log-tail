@@ -12,7 +12,11 @@ import (
 	"github.com/jedipunkz/datadog-log-tail/internal/config"
 )
 
-// RateLimitInfo tracks rate limit information from API responses
+// RateLimitInfo tracks rate limit information from API responses.
+// This struct is thread-safe for concurrent access through its internal mutex.
+// The rate limit information is automatically extracted from Datadog API response
+// headers (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset) and can
+// be safely accessed by multiple goroutines.
 type RateLimitInfo struct {
 	Limit     int       // Maximum number of requests allowed
 	Remaining int       // Number of requests remaining
@@ -119,32 +123,45 @@ func (c *Client) getRateLimitInfo() (limit, remaining int, reset time.Time) {
 	return c.rateLimitInfo.Limit, c.rateLimitInfo.Remaining, c.rateLimitInfo.Reset
 }
 
-// shouldBackoffForRateLimit checks if we should preemptively back off based on remaining quota
-func (c *Client) shouldBackoffForRateLimit() (bool, time.Duration) {
+// Rate limit backoff thresholds and durations
+const (
+	rateLimitLowThreshold      = 20.0 // Percentage threshold for low quota warning
+	rateLimitVeryLowThreshold  = 10.0 // Percentage threshold for very low quota
+	rateLimitCriticalThreshold = 5.0  // Percentage threshold for critical quota
+
+	rateLimitLowBackoff      = 2 * time.Second  // Backoff duration for low quota
+	rateLimitVeryLowBackoff  = 5 * time.Second  // Backoff duration for very low quota
+	rateLimitCriticalBackoff = 10 * time.Second // Backoff duration for critical quota
+	rateLimitResetBuffer     = 1 * time.Second  // Buffer time after rate limit reset
+)
+
+// shouldBackoffForRateLimit checks if we should preemptively back off based on remaining quota.
+// Returns whether to backoff, the backoff duration, and the current rate limit info.
+func (c *Client) shouldBackoffForRateLimit() (bool, time.Duration, int, int, time.Time) {
 	limit, remaining, reset := c.getRateLimitInfo()
 
 	// If we don't have rate limit info yet, don't back off
 	if limit == 0 {
-		return false, 0
+		return false, 0, limit, remaining, reset
 	}
 
 	// Calculate the percentage of quota remaining
 	percentRemaining := float64(remaining) / float64(limit) * 100
 
-	// If we're below 20% of quota, introduce preemptive backoff
-	if percentRemaining < 20 && percentRemaining >= 10 {
-		return true, 2 * time.Second
-	} else if percentRemaining < 10 && percentRemaining >= 5 {
-		return true, 5 * time.Second
-	} else if percentRemaining < 5 && remaining > 0 {
-		return true, 10 * time.Second
+	// If we're below threshold, introduce preemptive backoff
+	if percentRemaining < rateLimitLowThreshold && percentRemaining >= rateLimitVeryLowThreshold {
+		return true, rateLimitLowBackoff, limit, remaining, reset
+	} else if percentRemaining < rateLimitVeryLowThreshold && percentRemaining >= rateLimitCriticalThreshold {
+		return true, rateLimitVeryLowBackoff, limit, remaining, reset
+	} else if percentRemaining < rateLimitCriticalThreshold && remaining > 0 {
+		return true, rateLimitCriticalBackoff, limit, remaining, reset
 	} else if remaining == 0 && !reset.IsZero() && time.Now().Before(reset) {
 		// If we've exhausted the quota, wait until reset
-		waitTime := time.Until(reset) + time.Second // Add 1 second buffer
-		return true, waitTime
+		waitTime := time.Until(reset) + rateLimitResetBuffer
+		return true, waitTime, limit, remaining, reset
 	}
 
-	return false, 0
+	return false, 0, limit, remaining, reset
 }
 
 // GetBaseURL returns the base URL
